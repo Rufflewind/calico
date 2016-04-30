@@ -2,7 +2,7 @@
 # error "must not include begin header twice in succession"
 #else
 # ifndef noreturn
-#  if __STDC_VERSION__ >= 20112L
+#  if __STDC_VERSION__ >= 201112L
 #   define noreturn _Noreturn
 #  elif __cplusplus >= 201103L
 #   define noreturn [[noreturn]]

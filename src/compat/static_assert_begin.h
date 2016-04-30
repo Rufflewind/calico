@@ -2,7 +2,7 @@
 # error "must not include begin header twice in succession"
 #else
 # if !defined static_assert && __cplusplus < 201103L
-#  if __STDC_VERSION__ >= 20112L
+#  if __STDC_VERSION__ >= 201112L
 #   define static_assert _Static_assert
 #  else
 #   define static_assert(cond, msg) \
