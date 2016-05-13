@@ -4,7 +4,7 @@
     was successful, `1` is returned and `*pos_out` is set to the index of the
     element that compares equal to `key`.  Otherwise, `0` is returned and
     `*pos_out` is set to the index of the smallest element greater than `key`.
-    `pos_out` is optional and can * be null. */
+    `pos_out` is optional and can be null. */
 int binary_search(const void *key,
                   const void *ptr,
                   size_t count,
