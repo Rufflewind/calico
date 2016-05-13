@@ -17,19 +17,22 @@ int generic_compare_Type(void *ctx, const void *x, const void *y)
 }
 
 static inline
-int binary_search_Type(const Type *key, Type **pptr, size_t count)
+int binary_search_Type(const Type *key,
+                       const Type *ptr,
+                       size_t count,
+                       size_t *pos_out)
 {
-    void *ptr = *pptr;
-    int r = binary_search(key, &ptr, count, sizeof(Type),
-                                  &generic_compare_Type, NULL);
-    *pptr = (Type *)ptr;
-    return r;
+    return binary_search(key, ptr, count, sizeof(Type),
+                         &generic_compare_Type, NULL, pos_out);
 }
 
 static inline
 int test_bsearch(Type **pptr, size_t count, const Type *key)
 {
-    return binary_search_Type(key, pptr, count);
+    size_t pos;
+    int r = binary_search_Type(key, *pptr, count, &pos);
+    *pptr = *pptr + pos;
+    return r;
 }
 
 int main(void)
