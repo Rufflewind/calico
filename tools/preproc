@@ -1,0 +1,166 @@
+#!/usr/bin/env python
+import io, itertools, random, re, string, sys
+
+#@snip/imp:StringIO[
+try:
+    from io import StringIO
+except ImportError:
+    from StringIO import cStringIO
+#@]
+
+#@snip/LookaheadIterator[
+#@requires: mod:itertools
+class LookaheadIterator(object):
+    '''This serves a similar purpose to `itertools.tee` but is less prone to
+    space leakage.  It acts much like the original iterator, except that you
+    are allowed to peek ahead by an arbitrary amount.'''
+
+    def __init__(self, iterable):
+        '''Construct a `LookaheadIterator` from an existing iterator.  Once
+        created, one should generally avoid using the original iterator, as it
+        could cause `LookaheadIterator` to miss out on some elements.'''
+        self.iterator = iter(iterable)
+        self.buffer = []
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.buffer:
+            return self.buffer.pop()
+        return next(self.iterator)
+
+    def next(self):
+        return self.__next__()
+
+    def peek(self, n=1):
+        '''Peek up to `n` elements.  The function may return fewer items if
+        there aren't enough elements.'''
+        unbuffered = n - len(self.buffer)
+        results = list(itertools.chain(
+            reversed(self.buffer[max(0, -unbuffered):]),
+            itertools.islice(self.iterator, max(0, unbuffered)),
+        ))
+        if unbuffered >= 0:
+            self.buffer = list(reversed(results))
+        return results
+#@]
+
+def lex(stream, pattern):
+    m = re.compile(pattern).match(stream.getvalue(), stream.tell())
+    if m:
+        stream.seek(m.end())
+    return m
+
+def parse_includes(lines):
+    for line in lines:
+        m = re.match(r'\s*#\s*include\s*([<"].*[">])', line)
+        if m:
+            yield m.group(1)
+
+def render_includes(includes):
+    for include in includes:
+        yield "#include {0}\n".format(include)
+
+def peek_iterator(iterator, default=None):
+    peeked = tuple(iterator.peek())
+    if not peeked:
+        return default
+    return peeked[0]
+
+def parse_group(lines):
+    '''(LookaheadIterator<Line>) -> <List<Line>>'''
+    while True:
+        line = peek_iterator(lines)
+        if line is None or not line.strip():
+            break
+        next(lines)
+        yield line
+    while True:
+        line = peek_iterator(lines)
+        if line is None or line.strip():
+            break
+        next(lines)
+        yield line
+
+def split_header_body(lines):
+    '''(LookaheadIterator<Line>) -> (List<List<Line>>, List<Line>)
+    Get the header part that contains preprocessing directives.
+    The header is divided into groups separated by at least one empty line.'''
+    header = []
+    while True:
+        group = list(parse_group(lines))
+        if not group:
+            break
+        stripped_group = list(itertools.dropwhile(
+            lambda line: re.match(r"\s*(/\*|$)", line), group))
+        if stripped_group and not re.match("\s*#", stripped_group[0]):
+            break
+        header.append(group)
+    body = group + list(lines)
+    return header, body
+
+def get_prototype(lines):
+    prototype = []
+    m = None
+    for line in lines:
+        m = re.match(r"([^{]*){(.*)$", line)
+        if not m:
+            prototype.append(line)
+        else:
+            prototype.append(m.group(1))
+            break
+
+    # get rid of trailing whitespace
+    prototype = list(reversed(list(itertools.dropwhile(
+        lambda line: not line.strip(), reversed(prototype)))))
+    if prototype:
+        prototype[-1] = prototype[-1].rstrip()
+
+    return "".join(prototype), ([m.group(2)] if m else []) + list(lines)
+
+def parse_guard_macro(fn):
+    try:
+        with open(fn) as f:
+            lines = list(itertools.islice(f, 1))
+    except OSError:
+        return None
+    if not lines:
+        return None
+    m = re.match("\s*#\s*ifndef\s+(\w+)\s*$", lines[0])
+    if not m:
+        return None
+    return m.group(1)
+
+def render_header_file(f, guard_macro, includes, prototypes):
+    f.write("#ifndef {0}\n#define {0}\n".format(guard_macro))
+    f.write("".join(render_includes(sorted(includes))))
+    f.write('#ifdef __cplusplus\nextern "C" {\n#endif\n')
+    f.write("\n")
+    for prototype in prototypes:
+        f.write(prototype)
+        f.write(";\n\n")
+    f.write('#ifdef __cplusplus\n}\n#endif\n#endif\n')
+
+def generate_guard_macro(rng=random.SystemRandom()):
+   return "G_" + "".join(rng.choice(string.ascii_uppercase + string.digits)
+                         for _ in range(29))
+
+def create_header_file(src_fn, dst_fn):
+    with open(src_fn) as f:
+        lines = LookaheadIterator(list(f))
+
+    header, body = split_header_body(lines)
+    # only use includes from the first group; we follow the convention that
+    # the other groups are used only for the implementation
+    includes = set(parse_includes(header[0]))
+
+    prototype, defbody = get_prototype(body)
+
+    # make the guard macro "sticky"
+    guard_macro = parse_guard_macro(dst_fn) or generate_guard_macro()
+
+    with open(dst_fn, "w") as f:
+        render_header_file(f, guard_macro, includes, [prototype])
+
+create_header_file(sys.argv[1], sys.argv[2])
