@@ -31,7 +31,7 @@ int linear_sorted_search(const K *key,
         if (!r) {
             ret = 1;
         }
-        if (r >= 0) {
+        if (r <= 0) {
             break;
         }
     }
@@ -291,6 +291,7 @@ int insert_node_here(size_t height,
         *key_out = *key;
         *value_out = *value;
     }
+    *leaf_len(node) = B;
     *leaf_len(newnode) = B - 1;
     *child_inout = newnode;
     return -1;
@@ -370,6 +371,7 @@ int btree_insert(btree *m, const K *key, const V *value)
             leaf_values(branch_as_leaf(newroot))[0] = newvalue;
             branch_children(newroot)[0] = m->_root;
             branch_children(newroot)[1] = newchild;
+            m->_root = branch_as_leaf(newroot);
         }
     } else {
         assert(m->_len == 0);
@@ -387,9 +389,39 @@ int btree_insert(btree *m, const K *key, const V *value)
     return 0;
 }
 
-/** For debugging purposes. */
-void dump_tree(btree *m)
+#define INDENT 3
+
+static
+void dump_node(size_t indent, size_t height, leaf_node *m)
 {
+    branch_node *mb = try_leaf_as_branch(height, m);
+    size_t i;
+    for (i = 0; i < *leaf_len(m); ++i) {
+        if (mb) {
+            // printf("%p\n", (void *)branch_children(mb)[i]);
+            dump_node(indent + INDENT, height - 1, branch_children(mb)[i]);
+        }
+        for (size_t j = 0; j < indent; ++j) {
+            printf(" ");
+        }
+        printf("%02zu\033[33m%02.0f\033[0m\n",
+               leaf_keys(m)[i], leaf_values(m)[i]);
+    }
+    if (mb) {
+        // printf("%p\n", (void *)branch_children(mb)[i]);
+        dump_node(indent + INDENT, height - 1, branch_children(mb)[i]);
+    }
+}
+
+/** For debugging purposes. */
+void dump_btree(btree *m)
+{
+    if (!m->_root) {
+        printf("(empty)\n");
+    } else {
+        dump_node(0, m->_height - 1, m->_root);
+    }
+    printf("----------------------------------------\n");
 }
 
 int main(void)
@@ -402,36 +434,52 @@ int main(void)
     reset_btree(t);
 
     init_btree(t);
+    dump_btree(t);
 
     k = 0;
     assert(!btree_get(t, &k));
 
     k = 0;
-    v = 0.5;
+    v = 1;
     assert(!btree_insert(t, &k, &v));
+    dump_btree(t);
 
     k = 0;
-    assert(*btree_get(t, &k) == 0.5);
+    assert(*btree_get(t, &k) == 1);
 
     k = 0;
-    v = 1.5;
+    v = 2;
     assert(!btree_insert(t, &k, &v));
+    dump_btree(t);
 
     k = 0;
-    assert(*btree_get(t, &k) == 1.5);
+    assert(*btree_get(t, &k) == 2);
 
     k = 9;
-    v = 2.1;
+    v = 3;
     assert(!btree_insert(t, &k, &v));
+    dump_btree(t);
 
     k = 5;
-    v = 5.1;
+    v = 4;
     assert(!btree_insert(t, &k, &v));
+    dump_btree(t);
 
-    /* FIXME: this causes valgrind error during free */
     k = 3;
-    v = 2.1;
+    v = 5;
     assert(!btree_insert(t, &k, &v));
+    dump_btree(t);
+
+    k = 4;
+    v = 8;
+    assert(!btree_insert(t, &k, &v));
+    dump_btree(t);
+
+    /* crashes again */
+    k = 1;
+    v = 12;
+    assert(!btree_insert(t, &k, &v));
+    dump_btree(t);
 
     reset_btree(t);
 
