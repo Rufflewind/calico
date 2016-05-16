@@ -116,10 +116,11 @@ void free_node(size_t height, leaf_node *m)
 {
     branch_node *mb = try_leaf_as_branch(height, m);
     if (mb) {
-        for (size_t i = 0; i < *leaf_len(m); ++i) {
+        for (size_t i = 0; i < *leaf_len(m) + 1; ++i) {
             free_node(height - 1, branch_children(mb)[i]);
         }
     }
+    // printf("free(%p)\n", (void *)m);
     free(m);
 }
 
@@ -213,8 +214,8 @@ int insert_node_here(size_t height,
         stmt;                                                           \
     }                                                                   \
     if (height) {                                                       \
-        leaf_node **dst = branch_children((branch_node *)dstnode);      \
-        leaf_node **src = branch_children((branch_node *)srcnode);      \
+        leaf_node **dst = branch_children((branch_node *)dstnode) + 1;  \
+        leaf_node **src = branch_children((branch_node *)srcnode) + 1;  \
         stmt;                                                           \
     }
 
@@ -231,11 +232,9 @@ int insert_node_here(size_t height,
         stmt;                                                           \
     }                                                                   \
     if (height) {                                                       \
-        leaf_node **dst = branch_children((branch_node *)node);         \
+        leaf_node **dst = branch_children((branch_node *)node) + 1;     \
         leaf_node **src = child_inout;                                  \
-        ++i;                                                            \
         stmt;                                                           \
-        --i;                                                            \
     }
 
     size_t len = *leaf_len(node);
@@ -254,9 +253,8 @@ int insert_node_here(size_t height,
 
     /* case B: not enough room; need to split node */
     assert(len == 2 * B - 1);
-    leaf_node *newnode = malloc(height ?
-                                sizeof(branch_node) :
-                                sizeof(leaf_node));
+    leaf_node *newnode = (leaf_node *)malloc(
+        height ? sizeof(branch_node) : sizeof(leaf_node));
     if (!newnode) {
         /* FIXME: we should return 1 instead of failing, but we'd need to
            rollback the incomplete insert, which is tricky :c */
@@ -269,32 +267,42 @@ int insert_node_here(size_t height,
     X_COPY(newnode, node, {
         memcpy(dst + s - B, src + s, (B * 2 - 1 - s) * sizeof(*src));
     });
-    if (i < B) {
-        *key_out = leaf_keys(node)[B - 1];
-        *value_out = leaf_values(node)[B - 1];
-        X_COPY(node, node, {
-            memmove(dst + i + 1, src + i, (B - 1 - i) * sizeof(*src));
-        });
-        X_GET(node, {
-            dst[i] = *src;
-        });
-    } else if (i > B) {
-        *key_out = leaf_keys(node)[B];
-        *value_out = leaf_values(node)[B];
-        X_COPY(newnode, node, {
-            memcpy(dst, src + B + i, (i - B - 1) * sizeof(*src));
-        });
-        X_GET(newnode, {
-            dst[i - B - 1] = *src;
-        });
-    } else {
+    if (i == B) {
+        if (height) {
+            branch_children((branch_node *)newnode)[0] = *child_inout;
+        }
         *key_out = *key;
         *value_out = *value;
+    } else {
+        size_t mid = i < B ? B - 1 : B;
+        K midkey = leaf_keys(node)[mid];;
+        V midvalue = leaf_values(node)[mid];
+        if (height) {
+            branch_children((branch_node *)newnode)[0] =
+                branch_children((branch_node *)node)[mid + 1];
+        }
+        if (i < B) {
+            X_COPY(node, node, {
+                memmove(dst + i + 1, src + i, (B - 1 - i) * sizeof(*src));
+            });
+            X_GET(node, {
+                dst[i] = *src;
+            });
+        } else {
+            X_COPY(newnode, node, {
+                memcpy(dst, src + B + i, (i - B - 1) * sizeof(*src));
+            });
+            X_GET(newnode, {
+                dst[i - B - 1] = *src;
+            });
+        }
+        *key_out = midkey;
+        *value_out = midvalue;
     }
     *leaf_len(node) = B;
     *leaf_len(newnode) = B - 1;
     *child_inout = newnode;
-    return -1;
+    return -2;
 
 #undef X_ASSIGN
 #undef X_COPY
@@ -314,7 +322,7 @@ int insert_node(size_t height,
     if (linear_sorted_search(key, leaf_keys(node), *leaf_len(node), &i)) {
         /* exact match: just replace the value */
         leaf_values(node)[i] = *value;
-        return 0;
+        return -1;
     }
     branch_node *nodeb = try_leaf_as_branch(height, node);
     if (nodeb) {
@@ -325,7 +333,7 @@ int insert_node(size_t height,
                             key_inout,
                             value_inout,
                             child_inout);
-        if (r >= 0) {                   /* we don't need to do any more */
+        if (r >= -1) {                  /* we don't need to do any more */
             return r;
         }
     }
@@ -341,74 +349,80 @@ int insert_node(size_t height,
 
 int btree_insert(btree *m, const K *key, const V *value)
 {
-    if (m->_root) {
-        K newkey;
-        V newvalue;
-        leaf_node *newchild;
-        int r = insert_node(m->_height - 1,
-                            m->_root,
-                            key,
-                            value,
-                            &newkey,
-                            &newvalue,
-                            &newchild);
-        if (r > 0) {
-            return r;
-        }
-        if (r < 0) {
-            branch_node *newroot = (branch_node *)malloc(sizeof(*newroot));
-            if (!newroot) {
-                /* FIXME: we should return 1 instead of failing, but we'd need
-                   to rollback the incomplete insert, which is tricky :c */
-                fprintf(stderr, "%s:%lu: Out of memory\n",
-                        __FILE__, (unsigned long)__LINE__);
-                fflush(stderr);
-                abort();
-            }
-            ++m->_height;
-            *leaf_len(branch_as_leaf(newroot)) = 1;
-            leaf_keys(branch_as_leaf(newroot))[0] = newkey;
-            leaf_values(branch_as_leaf(newroot))[0] = newvalue;
-            branch_children(newroot)[0] = m->_root;
-            branch_children(newroot)[1] = newchild;
-            m->_root = branch_as_leaf(newroot);
-        }
-    } else {
+    if (!m->_root) {
         assert(m->_len == 0);
         assert(m->_height == 0);
         m->_root = (leaf_node *)malloc(sizeof(*m->_root));
         if (!m->_root) {
             return 1;
         }
+        ++m->_len; // uhhh wait what if the insert was a dupe
         m->_height = 1;
         *leaf_len(m->_root) = 1;
         leaf_keys(m->_root)[0] = *key;
         leaf_values(m->_root)[0] = *value;
+        return 0;
     }
-    ++m->_len;
+    K newkey;
+    V newvalue;
+    leaf_node *newchild;
+    int r = insert_node(m->_height - 1,
+                        m->_root,
+                        key,
+                        value,
+                        &newkey,
+                        &newvalue,
+                        &newchild);
+    if (r == 0) {                       /* added a new element */
+        ++m->_len;
+    } else if (r == -1) {               /* updated an existing element */
+        r = 0;
+    }
+    if (r >= 0) {
+        return r;
+    }
+    branch_node *newroot = (branch_node *)malloc(sizeof(*newroot));
+    if (!newroot) {
+        /* FIXME: we should return 1 instead of failing, but we'd need
+           to rollback the incomplete insert, which is tricky :c */
+        fprintf(stderr, "%s:%lu: Out of memory\n",
+                __FILE__, (unsigned long)__LINE__);
+        fflush(stderr);
+        abort();
+    }
+    ++m->_height;
+    *leaf_len(branch_as_leaf(newroot)) = 1;
+    leaf_keys(branch_as_leaf(newroot))[0] = newkey;
+    leaf_values(branch_as_leaf(newroot))[0] = newvalue;
+    branch_children(newroot)[0] = m->_root;
+    printf("btree_insert: newchild=%p\n", (void *)newchild);
+    branch_children(newroot)[1] = newchild;
+    m->_root = branch_as_leaf(newroot);
     return 0;
 }
 
-#define INDENT 3
+#define INDENT 1
 
 static
 void dump_node(size_t indent, size_t height, leaf_node *m)
 {
+    for (size_t j = 0; j < indent; ++j) {
+        printf(" ");
+    }
+    printf("dump_node(%p)\n", (void *)m);
     branch_node *mb = try_leaf_as_branch(height, m);
     size_t i;
     for (i = 0; i < *leaf_len(m); ++i) {
         if (mb) {
-            // printf("%p\n", (void *)branch_children(mb)[i]);
             dump_node(indent + INDENT, height - 1, branch_children(mb)[i]);
         }
         for (size_t j = 0; j < indent; ++j) {
             printf(" ");
         }
-        printf("%02zu\033[33m%02.0f\033[0m\n",
+        printf("\033[37m%02zu\033[32m,%02.0f\033[0m\n",
                leaf_keys(m)[i], leaf_values(m)[i]);
     }
     if (mb) {
-        // printf("%p\n", (void *)branch_children(mb)[i]);
         dump_node(indent + INDENT, height - 1, branch_children(mb)[i]);
     }
 }
@@ -424,6 +438,30 @@ void dump_btree(btree *m)
     printf("----------------------------------------\n");
 }
 
+static
+void test_random_inserts(unsigned seed,
+                         unsigned range,
+                         unsigned count,
+                         int dump)
+{
+    btree bt, *t = &bt;
+    init_btree(t);
+    srand(seed);
+    for (unsigned i = 0; i < count; ++i) {
+        size_t k = ((unsigned)rand() % range);
+        double v = (double)((unsigned)rand() % range);
+        if (dump) {
+            printf("insert(%zu, %f)\n", k, v);
+        }
+        assert(!btree_insert(t, &k, &v));
+        if (dump) {
+            dump_btree(t);
+        }
+        assert(*btree_get(t, &k) == v);
+    }
+    reset_btree(t);
+}
+
 int main(void)
 {
     btree bt, *t = &bt;
@@ -431,57 +469,86 @@ int main(void)
     double v;
 
     init_btree(t);
-    reset_btree(t);
+    dump_btree(t);
 
     init_btree(t);
-    dump_btree(t);
-
-    k = 0;
-    assert(!btree_get(t, &k));
-
-    k = 0;
-    v = 1;
-    assert(!btree_insert(t, &k, &v));
-    dump_btree(t);
-
-    k = 0;
-    assert(*btree_get(t, &k) == 1);
-
-    k = 0;
-    v = 2;
-    assert(!btree_insert(t, &k, &v));
-    dump_btree(t);
-
-    k = 0;
-    assert(*btree_get(t, &k) == 2);
-
-    k = 9;
-    v = 3;
-    assert(!btree_insert(t, &k, &v));
-    dump_btree(t);
-
-    k = 5;
-    v = 4;
-    assert(!btree_insert(t, &k, &v));
-    dump_btree(t);
-
-    k = 3;
-    v = 5;
-    assert(!btree_insert(t, &k, &v));
-    dump_btree(t);
-
-    k = 4;
-    v = 8;
-    assert(!btree_insert(t, &k, &v));
-    dump_btree(t);
-
-    /* crashes again */
-    k = 1;
-    v = 12;
-    assert(!btree_insert(t, &k, &v));
-    dump_btree(t);
-
     reset_btree(t);
+
+    test_random_inserts(80, 100, 300, 1);
+    test_random_inserts(100, 100, 300, 1);
+    test_random_inserts(101, 100, 300, 1);
+    test_random_inserts(105, 100, 300, 1);
+
+    // k = 0;
+    // assert(!btree_get(t, &k));
+
+    // k = 0;
+    // v = 1;
+    // printf("insert(%zu)\n", k);
+    // assert(!btree_insert(t, &k, &v));
+    // dump_btree(t);
+
+    // k = 0;
+    // assert(*btree_get(t, &k) == 1);
+
+    // k = 0;
+    // v = 2;
+    // printf("insert(%zu)\n", k);
+    // assert(!btree_insert(t, &k, &v));
+    // dump_btree(t);
+
+    // k = 0;
+    // assert(*btree_get(t, &k) == 2);
+
+    // k = 9;
+    // v = 3;
+    // printf("insert(%zu)\n", k);
+    // assert(!btree_insert(t, &k, &v));
+    // dump_btree(t);
+
+    // k = 5;
+    // v = 4;
+    // printf("insert(%zu)\n", k);
+    // assert(!btree_insert(t, &k, &v));
+    // dump_btree(t);
+
+    // k = 3;
+    // v = 5;
+    // printf("insert(%zu)\n", k);
+    // assert(!btree_insert(t, &k, &v));
+    // dump_btree(t);
+
+    // k = 4;
+    // v = 8;
+    // printf("insert(%zu)\n", k);
+    // assert(!btree_insert(t, &k, &v));
+    // dump_btree(t);
+
+    // k = 1;
+    // v = 12;
+    // printf("insert(%zu)\n", k);
+    // assert(!btree_insert(t, &k, &v));
+    // dump_btree(t);
+
+    // k = 15;
+    // v = 11;
+    // printf("insert(%zu)\n", k);
+    // assert(!btree_insert(t, &k, &v));
+    // dump_btree(t);
+
+    // k = 20;
+    // v = 11;
+    // printf("insert(%zu)\n", k);
+    // assert(!btree_insert(t, &k, &v));
+    // dump_btree(t);
+
+    // k = 30;
+    // v = 11;
+    // printf("insert(%zu)\n", k);
+    // assert(!btree_insert(t, &k, &v));
+    // dump_btree(t);
+
+    // reset_btree(t);
 
     return 0;
 }
