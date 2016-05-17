@@ -202,6 +202,7 @@ int insert_node_here(size_t height,
                      leaf_node **child_inout)
 {
 
+/* note that the we copy to the RIGHT child, hence the "+ 1" */
 #define X_COPY(dstnode, srcnode, stmt)                                  \
     {                                                                   \
         K *dst = leaf_keys(dstnode);                                    \
@@ -219,7 +220,7 @@ int insert_node_here(size_t height,
         stmt;                                                           \
     }
 
-/* note that the we insert to the RIGHT child, hence the ++i */
+/* note that the we copy to the RIGHT child, hence the "+ 1" */
 #define X_GET(node, stmt)                                               \
     {                                                                   \
         K *dst = leaf_keys(node);                                       \
@@ -319,11 +320,14 @@ int insert_node(size_t height,
                 leaf_node **child_inout)
 {
     size_t i;
+    /* this part depends on the comparison operation */
     if (linear_sorted_search(key, leaf_keys(node), *leaf_len(node), &i)) {
         /* exact match: just replace the value */
         leaf_values(node)[i] = *value;
         return -1;
     }
+    /* the rest of it does not depend on the comparison operation, only on the
+       layout of the structure */
     branch_node *nodeb = try_leaf_as_branch(height, node);
     if (nodeb) {
         int r = insert_node(height - 1,
@@ -395,21 +399,18 @@ int btree_insert(btree *m, const K *key, const V *value)
     leaf_keys(branch_as_leaf(newroot))[0] = newkey;
     leaf_values(branch_as_leaf(newroot))[0] = newvalue;
     branch_children(newroot)[0] = m->_root;
-    printf("btree_insert: newchild=%p\n", (void *)newchild);
+    // printf("btree_insert: newchild=%p\n", (void *)newchild);
     branch_children(newroot)[1] = newchild;
     m->_root = branch_as_leaf(newroot);
     return 0;
 }
 
-#define INDENT 1
+#define INDENT 2
 
 static
 void dump_node(size_t indent, size_t height, leaf_node *m)
 {
-    for (size_t j = 0; j < indent; ++j) {
-        printf(" ");
-    }
-    printf("dump_node(%p)\n", (void *)m);
+    // printf("dump_node(%p)\n", (void *)m);
     branch_node *mb = try_leaf_as_branch(height, m);
     size_t i;
     for (i = 0; i < *leaf_len(m); ++i) {
@@ -419,8 +420,12 @@ void dump_node(size_t indent, size_t height, leaf_node *m)
         for (size_t j = 0; j < indent; ++j) {
             printf(" ");
         }
-        printf("\033[37m%02zu\033[32m,%02.0f\033[0m\n",
-               leaf_keys(m)[i], leaf_values(m)[i]);
+        if (height)
+            printf("\033[37m%03zu\033[32m,%03.0f\033[0m\n",
+                   leaf_keys(m)[i], leaf_values(m)[i]);
+        else
+            printf("\033[37m%03zu\033[33m,%03.0f\033[0m\n",
+                   leaf_keys(m)[i], leaf_values(m)[i]);
     }
     if (mb) {
         dump_node(indent + INDENT, height - 1, branch_children(mb)[i]);
@@ -438,6 +443,20 @@ void dump_btree(btree *m)
     printf("----------------------------------------\n");
 }
 
+#include "wclock.h"
+static wclock clk;
+static int timing_counter;
+static double clk_time;
+#ifdef PROFILE
+#define TIME(name)                                                      \
+    for (clk_time = get_wclock(&clk), timing_counter = 0;               \
+         !timing_counter;                                               \
+         ++timing_counter,                                              \
+         printf("time_%s=%.6g\n", name, get_wclock(&clk) - clk_time))
+#else
+#define TIME(name)
+#endif
+
 static
 void test_random_inserts(unsigned seed,
                          unsigned range,
@@ -447,17 +466,23 @@ void test_random_inserts(unsigned seed,
     btree bt, *t = &bt;
     init_btree(t);
     srand(seed);
-    for (unsigned i = 0; i < count; ++i) {
-        size_t k = ((unsigned)rand() % range);
-        double v = (double)((unsigned)rand() % range);
-        if (dump) {
-            printf("insert(%zu, %f)\n", k, v);
+    TIME("random_inserts1") {
+        for (unsigned i = 0; i < count; ++i) {
+            size_t k = (unsigned)rand() % range;
+            double v = (double)((unsigned)rand() % range);
+#ifndef PROFILE
+            if (dump) {
+                printf("insert(%zu, %f)\n", k, v);
+            }
+#endif
+            assert(!btree_insert(t, &k, &v));
+#ifndef PROFILE
+            if (dump) {
+                dump_btree(t);
+            }
+            assert(*btree_get(t, &k) == v);
+#endif
         }
-        assert(!btree_insert(t, &k, &v));
-        if (dump) {
-            dump_btree(t);
-        }
-        assert(*btree_get(t, &k) == v);
     }
     reset_btree(t);
 }
@@ -467,17 +492,17 @@ int main(void)
     btree bt, *t = &bt;
     size_t k;
     double v;
-
-    init_btree(t);
-    dump_btree(t);
+    init_wclock(&clk);
 
     init_btree(t);
     reset_btree(t);
 
-    test_random_inserts(80, 100, 300, 1);
+    // test_random_inserts(80, 10000000, 100000, 0);
+
     test_random_inserts(100, 100, 300, 1);
-    test_random_inserts(101, 100, 300, 1);
-    test_random_inserts(105, 100, 300, 1);
+    // test_random_inserts(101, 100, 300, 1);
+    // test_random_inserts(105, 100, 300, 1);
+    // test_random_inserts(25, 25, 25, 1);
 
     // k = 0;
     // assert(!btree_get(t, &k));
