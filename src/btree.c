@@ -1,5 +1,5 @@
 #include <stddef.h>
-#define B 2
+#define B 8
 #define K size_t
 #define V double
 static inline
@@ -291,7 +291,7 @@ int insert_node_here(size_t height,
             });
         } else {
             X_COPY(newnode, node, {
-                memcpy(dst, src + B + i, (i - B - 1) * sizeof(*src));
+                memcpy(dst, src + B + 1, (i - B - 1) * sizeof(*src));
             });
             X_GET(newnode, {
                 dst[i - B - 1] = *src;
@@ -497,9 +497,9 @@ int main(void)
     init_btree(t);
     reset_btree(t);
 
-    // test_random_inserts(80, 10000000, 100000, 0);
+    test_random_inserts(80, 100000000, 1000000, 0);
 
-    test_random_inserts(100, 100, 300, 1);
+    test_random_inserts(100, 100, 300, 0);
     // test_random_inserts(101, 100, 300, 1);
     // test_random_inserts(105, 100, 300, 1);
     // test_random_inserts(25, 25, 25, 1);
