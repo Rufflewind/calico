@@ -211,8 +211,8 @@ int btree_in(const btree *m, const K *k)
 
 static inline
 void copy_elements(size_t height,
-                   leaf_node *dstnode,
-                   leaf_node *srcnode,
+                   leaf_node *restrict dstnode,
+                   leaf_node *restrict srcnode,
                    size_t dstindex,
                    size_t srcindex,
                    size_t count)
@@ -221,13 +221,13 @@ void copy_elements(size_t height,
     K *sks = leaf_keys(srcnode);
     V *dvs = leaf_values(dstnode);
     V *svs = leaf_values(srcnode);
-    memmove(dks + dstindex, sks + srcindex, count * sizeof(*sks));
-    memmove(dvs + dstindex, svs + srcindex, count * sizeof(*svs));
+    memcpy(dks + dstindex, sks + srcindex, count * sizeof(*sks));
+    memcpy(dvs + dstindex, svs + srcindex, count * sizeof(*svs));
     /* note that the we copy the RIGHT child, hence the "+ 1" */
     if (height) {
         leaf_node **dcs = branch_children(unsafe_leaf_as_branch(dstnode)) + 1;
         leaf_node **scs = branch_children(unsafe_leaf_as_branch(srcnode)) + 1;
-        memmove(dcs + dstindex, scs + srcindex, count * sizeof(*scs));
+        memcpy(dcs + dstindex, scs + srcindex, count * sizeof(*scs));
     }
 }
 
@@ -238,7 +238,15 @@ void move_elements(size_t height,
                    size_t srcindex,
                    size_t count)
 {
-    copy_elements(height, node, node, dstindex, srcindex, count);
+    K *ks = leaf_keys(node);
+    V *vs = leaf_values(node);
+    memmove(ks + dstindex, ks + srcindex, count * sizeof(*ks));
+    memmove(vs + dstindex, vs + srcindex, count * sizeof(*vs));
+    /* note that the we move the RIGHT child, hence the "+ 1" */
+    if (height) {
+        leaf_node **cs = branch_children(unsafe_leaf_as_branch(node)) + 1;
+        memmove(cs + dstindex, cs + srcindex, count * sizeof(*cs));
+    }
 }
 
 static inline
@@ -302,20 +310,13 @@ int insert_node_here(size_t height,
             branch_children((branch_node *)newnode)[0] =
                 branch_children((branch_node *)node)[mid + 1];
         }
-        leaf_node *nnode = node;
-        size_t a = i + 1;
-        size_t b = i;
-        size_t c = B - 1 - i;
-        size_t d = i;
-        if (i > B) {
-            a = 0;
-            b = B + 1;
-            c = i - B - 1;
-            d -= B + 1;
-            nnode = newnode;
+        if (i < B) {
+            move_elements(height, node, i + 1, i, B - 1 - i);
+            set_element(height, node, i, elem);
+        } else {
+            copy_elements(height, newnode, node, 0, B + 1, i - B - 1);
+            set_element(height, newnode, i - B - 1, elem);
         }
-        copy_elements(height, nnode, node, a, b, c);
-        set_element(height, nnode, d, elem);
         *elem_out->key = midkey;
         *elem_out->value = midvalue;
     }
