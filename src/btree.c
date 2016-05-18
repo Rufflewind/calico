@@ -51,6 +51,13 @@ typedef struct {
 #endif
 } leaf_node;
 
+/** A simple container used for readability purposes */
+struct element_ref {
+    K *key;
+    V *value;
+    leaf_node **child; /* right child */
+};
+
 static inline
 size_t *leaf_len(leaf_node *m)
 {
@@ -192,62 +199,91 @@ int btree_in(const btree *m, const K *k)
     return !!btree_get_node((btree *)m, k, &i);
 }
 
+static inline
+void copy_elements(size_t height,
+                   leaf_node *restrict dstnode,
+                   leaf_node *restrict srcnode,
+                   size_t dstindex,
+                   size_t srcindex,
+                   size_t count)
+{
+    {
+        K *dst = leaf_keys(dstnode);
+        K *src = leaf_keys(srcnode);
+        memcpy(dst + dstindex, src + srcindex, count * sizeof(*src));
+    }
+    {
+        V *dst = leaf_values(dstnode);
+        V *src = leaf_values(srcnode);
+        memcpy(dst + dstindex, src + srcindex, count * sizeof(*src));
+    }
+    /* note that the we copy the RIGHT child, hence the "+ 1" */
+    if (height) {
+        leaf_node **dst = branch_children((branch_node *)dstnode) + 1;
+        leaf_node **src = branch_children((branch_node *)srcnode) + 1;
+        memcpy(dst + dstindex, src + srcindex, count * sizeof(*src));
+    }
+}
+
+static inline
+void move_elements(size_t height,
+                   leaf_node *node,
+                   size_t dstindex,
+                   size_t srcindex,
+                   size_t count)
+{
+    {
+        K *ptr = leaf_keys(node);
+        memmove(ptr + dstindex, ptr + srcindex, count * sizeof(*ptr));
+    }
+    {
+        V *ptr = leaf_values(node);
+        memmove(ptr + dstindex, ptr + srcindex, count * sizeof(*ptr));
+    }
+    /* note that the we move the RIGHT child, hence the "+ 1" */
+    if (height) {
+        leaf_node **ptr = branch_children((branch_node *)node) + 1;
+        memmove(ptr + dstindex, ptr + srcindex, count * sizeof(*ptr));
+    }
+}
+
+static inline
+void set_element(size_t height,
+                 leaf_node *node,
+                 size_t index,
+                 const struct element_ref *elem)
+{
+    {
+        K *dst = leaf_keys(node);
+        const K *src = elem->key;
+        dst[index] = *src;
+    }
+    {
+        V *dst = leaf_values(node);
+        const V *src = elem->value;
+        dst[index] = *src;
+    }
+    if (height) {
+        leaf_node **dst = branch_children((branch_node *)node) + 1;
+        leaf_node **src = elem->child;
+        dst[index] = *src;
+    }
+}
+
 int insert_node_here(size_t height,
                      leaf_node *node,
                      size_t i,
-                     const K *key,
-                     const V *value,
-                     K *key_out,
-                     V *value_out,
-                     leaf_node **child_inout)
+                     /* the `const` here is just placebo, but still: don't try
+                        to modify the values that its members point to*/
+                     const struct element_ref *elem,
+                     struct element_ref *elem_out)
 {
-
-/* note that the we copy to the RIGHT child, hence the "+ 1" */
-#define X_COPY(dstnode, srcnode, stmt)                                  \
-    {                                                                   \
-        K *dst = leaf_keys(dstnode);                                    \
-        K *src = leaf_keys(srcnode);                                    \
-        stmt;                                                           \
-    }                                                                   \
-    {                                                                   \
-        V *dst = leaf_values(dstnode);                                  \
-        V *src = leaf_values(srcnode);                                  \
-        stmt;                                                           \
-    }                                                                   \
-    if (height) {                                                       \
-        leaf_node **dst = branch_children((branch_node *)dstnode) + 1;  \
-        leaf_node **src = branch_children((branch_node *)srcnode) + 1;  \
-        stmt;                                                           \
-    }
-
-/* note that the we copy to the RIGHT child, hence the "+ 1" */
-#define X_GET(node, stmt)                                               \
-    {                                                                   \
-        K *dst = leaf_keys(node);                                       \
-        const K *src = key;                                             \
-        stmt;                                                           \
-    }                                                                   \
-    {                                                                   \
-        V *dst = leaf_values(node);                                     \
-        const V *src = value;                                           \
-        stmt;                                                           \
-    }                                                                   \
-    if (height) {                                                       \
-        leaf_node **dst = branch_children((branch_node *)node) + 1;     \
-        leaf_node **src = child_inout;                                  \
-        stmt;                                                           \
-    }
-
     size_t len = *leaf_len(node);
 
     /* case A: enough room to do a simple insert */
     if (len < 2 * B - 1) {
-        X_COPY(node, node, {
-            memmove(dst + i + 1, src + i, (len - i) * sizeof(*src));
-        });
-        X_GET(node, {
-            dst[i] = *src;
-        });
+        move_elements(height, node, i + 1, i, len - i);
+        set_element(height, node, i, elem);
         ++*leaf_len(node);
         return 0;
     }
@@ -265,15 +301,13 @@ int insert_node_here(size_t height,
         abort();
     }
     size_t s = i > B ? i : B;
-    X_COPY(newnode, node, {
-        memcpy(dst + s - B, src + s, (B * 2 - 1 - s) * sizeof(*src));
-    });
+    copy_elements(height, newnode, node, s - B, s, B * 2 - 1 - s);
     if (i == B) {
         if (height) {
-            branch_children((branch_node *)newnode)[0] = *child_inout;
+            branch_children((branch_node *)newnode)[0] = *elem->child;
         }
-        *key_out = *key;
-        *value_out = *value;
+        *elem_out->key = *elem->key;
+        *elem_out->value = *elem->value;
     } else {
         size_t mid = i < B ? B - 1 : B;
         K midkey = leaf_keys(node)[mid];;
@@ -283,31 +317,19 @@ int insert_node_here(size_t height,
                 branch_children((branch_node *)node)[mid + 1];
         }
         if (i < B) {
-            X_COPY(node, node, {
-                memmove(dst + i + 1, src + i, (B - 1 - i) * sizeof(*src));
-            });
-            X_GET(node, {
-                dst[i] = *src;
-            });
+            move_elements(height, node, i + 1, i, B - 1 - i);
+            set_element(height, node, i, elem);
         } else {
-            X_COPY(newnode, node, {
-                memcpy(dst, src + B + 1, (i - B - 1) * sizeof(*src));
-            });
-            X_GET(newnode, {
-                dst[i - B - 1] = *src;
-            });
+            copy_elements(height, newnode, node, 0, B + 1, i - B - 1);
+            set_element(height, newnode, i - B - 1, elem);
         }
-        *key_out = midkey;
-        *value_out = midvalue;
+        *elem_out->key = midkey;
+        *elem_out->value = midvalue;
     }
     *leaf_len(node) = B;
     *leaf_len(newnode) = B - 1;
-    *child_inout = newnode;
+    *elem_out->child = newnode;
     return -2;
-
-#undef X_ASSIGN
-#undef X_COPY
-
 }
 
 /** Return the node and the position within that node. */
@@ -341,14 +363,17 @@ int insert_node(size_t height,
             return r;
         }
     }
-    return insert_node_here(height,
-                            node,
-                            i,
-                            nodeb ? key_inout : key,
-                            nodeb ? value_inout : value,
-                            key_inout,
-                            value_inout,
-                            child_inout);
+    struct element_ref elem = {
+        nodeb ? key_inout : (K *)key,
+        nodeb ? value_inout : (V *)value,
+        child_inout
+    };
+    struct element_ref elem_out = {
+        key_inout,
+        value_inout,
+        child_inout
+    };
+    return insert_node_here(height, node, i, &elem, &elem_out);
 }
 
 int btree_insert(btree *m, const K *key, const V *value)
