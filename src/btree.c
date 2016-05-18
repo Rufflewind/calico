@@ -14,6 +14,7 @@ int compare_K(const K *x, const K *y)
 #include <stdlib.h>
 #include <stdio.h> /* for printing error messages */
 #include <string.h>
+#include "malloca.h"
 
 /** Perform a linear search on a sorted array pointed by `ptr`.  If the search
     was successful, `1` is returned and `*pos_out` is set to the index of the
@@ -97,6 +98,13 @@ leaf_node *branch_as_leaf(branch_node *m)
     return &m->_data;
 }
 
+/** It must actually be a branch, or this will cause UB. */
+static inline
+branch_node *unsafe_leaf_as_branch(leaf_node *m)
+{
+    return (branch_node *)m;
+}
+
 /** May return NULL if it's not a branch. */
 static inline
 branch_node *try_leaf_as_branch(size_t height, leaf_node *m)
@@ -104,7 +112,7 @@ branch_node *try_leaf_as_branch(size_t height, leaf_node *m)
     if (!height) {
         return NULL;
     }
-    return (branch_node *)m;
+    return unsafe_leaf_as_branch(m);
 }
 
 typedef struct {
@@ -345,39 +353,53 @@ int insert_node(size_t height,
                 V *value_inout,
                 leaf_node **child_inout)
 {
-    size_t i;
-    /* this part depends on the comparison operation */
-    if (linear_sorted_search(key, leaf_keys(node), *leaf_len(node), &i)) {
-        /* exact match: just replace the value */
-        leaf_values(node)[i] = *value;
-        return -1;
+    int r;
+    size_t h = 0;
+    ++height;
+    MALLOCA(size_t, istack, height);
+    MALLOCA(leaf_node *, nodestack, height);
+    /* this part can be packaged into its own "lookup" function */
+    while (1) {
+        /* this part depends on the comparison operation */
+        size_t i;
+        if (linear_sorted_search(key, leaf_keys(node), *leaf_len(node), &i)) {
+            /* exact match: just replace the value */
+            leaf_values(node)[i] = *value;
+            r = -1;
+            goto done;
+        }
+        istack[h] = i;
+        nodestack[h] = node;
+        ++h;
+        if (h >= height) {
+            break;
+        }
+        node = branch_children(unsafe_leaf_as_branch(node))[i];
     }
     /* the rest of it does not depend on the comparison operation, only on the
        layout of the structure */
-    branch_node *nodeb = try_leaf_as_branch(height, node);
-    if (nodeb) {
-        int r = insert_node(height - 1,
-                            branch_children(nodeb)[i],
-                            key,
-                            value,
-                            key_inout,
-                            value_inout,
-                            child_inout);
-        if (r >= -1) {                  /* we don't need to do any more */
-            return r;
+    while (h) {
+        --h;
+        struct element_ref elem = {
+            h != height - 1 ? key_inout : (K *)key,
+            h != height - 1 ? value_inout : (V *)value,
+            child_inout
+        };
+        struct element_ref elem_out = {
+            key_inout,
+            value_inout,
+            child_inout
+        };
+        r = insert_node_here(h != height - 1, nodestack[h], istack[h],
+                             &elem, &elem_out);
+        if (r >= -1) {
+            goto done;
         }
     }
-    struct element_ref elem = {
-        nodeb ? key_inout : (K *)key,
-        nodeb ? value_inout : (V *)value,
-        child_inout
-    };
-    struct element_ref elem_out = {
-        key_inout,
-        value_inout,
-        child_inout
-    };
-    return insert_node_here(height, node, i, &elem, &elem_out);
+done:
+    FREEA(nodestack);
+    FREEA(istack);
+    return r;
 }
 
 int btree_insert(btree *m, const K *key, const V *value)
@@ -526,11 +548,19 @@ int main(void)
     init_btree(t);
     reset_btree(t);
 
+#define ITERATOR_HEIGHT (UINTPTR_MAX / sizeof(leaf_node))
+
+    printf("sizeof_leaf_node=%zu\n", sizeof(leaf_node));
+
+    test_random_inserts(25, 25, 25, 0);
+#ifdef PROFILE
     test_random_inserts(80, 1000000, 1000000, 0);
+#else
+    test_random_inserts(80, 10000, 10000, 0);
+#endif
     test_random_inserts(100, 100, 300, 0);
     test_random_inserts(101, 100, 300, 0);
     test_random_inserts(105, 100, 300, 0);
-    test_random_inserts(25, 25, 25, 0);
 
     return 0;
 }
