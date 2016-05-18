@@ -445,9 +445,9 @@ void dump_btree(btree *m)
 
 #include "wclock.h"
 static wclock clk;
+#ifdef PROFILE
 static int timing_counter;
 static double clk_time;
-#ifdef PROFILE
 #define TIME(name)                                                      \
     for (clk_time = get_wclock(&clk), timing_counter = 0;               \
          !timing_counter;                                               \
@@ -490,90 +490,16 @@ void test_random_inserts(unsigned seed,
 int main(void)
 {
     btree bt, *t = &bt;
-    size_t k;
-    double v;
     init_wclock(&clk);
 
     init_btree(t);
     reset_btree(t);
 
-    test_random_inserts(80, 100000000, 1000000, 0);
-
+    test_random_inserts(80, 10000, 10000, 0);
     test_random_inserts(100, 100, 300, 0);
-    // test_random_inserts(101, 100, 300, 1);
-    // test_random_inserts(105, 100, 300, 1);
-    // test_random_inserts(25, 25, 25, 1);
-
-    // k = 0;
-    // assert(!btree_get(t, &k));
-
-    // k = 0;
-    // v = 1;
-    // printf("insert(%zu)\n", k);
-    // assert(!btree_insert(t, &k, &v));
-    // dump_btree(t);
-
-    // k = 0;
-    // assert(*btree_get(t, &k) == 1);
-
-    // k = 0;
-    // v = 2;
-    // printf("insert(%zu)\n", k);
-    // assert(!btree_insert(t, &k, &v));
-    // dump_btree(t);
-
-    // k = 0;
-    // assert(*btree_get(t, &k) == 2);
-
-    // k = 9;
-    // v = 3;
-    // printf("insert(%zu)\n", k);
-    // assert(!btree_insert(t, &k, &v));
-    // dump_btree(t);
-
-    // k = 5;
-    // v = 4;
-    // printf("insert(%zu)\n", k);
-    // assert(!btree_insert(t, &k, &v));
-    // dump_btree(t);
-
-    // k = 3;
-    // v = 5;
-    // printf("insert(%zu)\n", k);
-    // assert(!btree_insert(t, &k, &v));
-    // dump_btree(t);
-
-    // k = 4;
-    // v = 8;
-    // printf("insert(%zu)\n", k);
-    // assert(!btree_insert(t, &k, &v));
-    // dump_btree(t);
-
-    // k = 1;
-    // v = 12;
-    // printf("insert(%zu)\n", k);
-    // assert(!btree_insert(t, &k, &v));
-    // dump_btree(t);
-
-    // k = 15;
-    // v = 11;
-    // printf("insert(%zu)\n", k);
-    // assert(!btree_insert(t, &k, &v));
-    // dump_btree(t);
-
-    // k = 20;
-    // v = 11;
-    // printf("insert(%zu)\n", k);
-    // assert(!btree_insert(t, &k, &v));
-    // dump_btree(t);
-
-    // k = 30;
-    // v = 11;
-    // printf("insert(%zu)\n", k);
-    // assert(!btree_insert(t, &k, &v));
-    // dump_btree(t);
-
-    // reset_btree(t);
+    test_random_inserts(101, 100, 300, 0);
+    test_random_inserts(105, 100, 300, 0);
+    test_random_inserts(25, 25, 25, 0);
 
     return 0;
 }
