@@ -21,8 +21,10 @@ void test_random_inserts(unsigned seed,
                          int dump)
 {
     MAP<size_t, double> t;
+    char name[512];
     srand(seed);
-    TIME("random_inserts1") {
+    snprintf(name, sizeof(name), "random_inserts_%u_%u", range, count);
+    TIME(name) {
         for (unsigned i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % range;
             double v = (double)((unsigned)rand() % range);
