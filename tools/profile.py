@@ -11,7 +11,7 @@ def parse_kvs(s):
         d[k] = v
     return d
 
-N = 10
+N = int(sys.argv[1])
 ts = []
 for i in range(N):
     d = parse_kvs(subprocess.check_output(["./a.out"]).decode("utf-8"))
