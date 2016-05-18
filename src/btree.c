@@ -1,5 +1,7 @@
 #include <stddef.h>
+#ifndef B
 #define B 8
+#endif
 #define K size_t
 #define V double
 static inline
