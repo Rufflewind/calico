@@ -28,8 +28,10 @@ void test_random_inserts(unsigned seed,
         for (unsigned i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % range;
             double v = (double)((unsigned)rand() % range);
-            t[k] = v;
+            t.insert(std::pair<size_t, double>(k, v));
+#ifndef PROFILE
             assert(t[k] == v);
+#endif
         }
     }
 }
