@@ -291,7 +291,9 @@ int insert_node_here(size_t height,
     /* case B: not enough room; need to split node */
     assert(len == 2 * B - 1);
     leaf_node *newnode = (leaf_node *)malloc(
-        height ? sizeof(branch_node) : sizeof(leaf_node));
+        height ?
+        sizeof(branch_node) :
+        sizeof(leaf_node));
     if (!newnode) {
         /* FIXME: we should return 1 instead of failing, but we'd need to
            rollback the incomplete insert, which is tricky :c */
@@ -489,9 +491,11 @@ void test_random_inserts(unsigned seed,
                          int dump)
 {
     btree bt, *t = &bt;
+    char name[512];
     init_btree(t);
     srand(seed);
-    TIME("random_inserts1") {
+    snprintf(name, sizeof(name), "random_inserts_%u_%u", range, count);
+    TIME(name) {
         for (unsigned i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % range;
             double v = (double)((unsigned)rand() % range);
@@ -520,7 +524,7 @@ int main(void)
     init_btree(t);
     reset_btree(t);
 
-    test_random_inserts(80, 10000, 10000, 0);
+    test_random_inserts(80, 1000000, 1000000, 0);
     test_random_inserts(100, 100, 300, 0);
     test_random_inserts(101, 100, 300, 0);
     test_random_inserts(105, 100, 300, 0);
