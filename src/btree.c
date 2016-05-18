@@ -1,6 +1,6 @@
 #include <stddef.h>
 #ifndef B
-#define B 8
+#define B 5
 #endif
 #define K size_t
 #define V double
@@ -217,21 +217,17 @@ void copy_elements(size_t height,
                    size_t srcindex,
                    size_t count)
 {
-    {
-        K *dst = leaf_keys(dstnode);
-        K *src = leaf_keys(srcnode);
-        memcpy(dst + dstindex, src + srcindex, count * sizeof(*src));
-    }
-    {
-        V *dst = leaf_values(dstnode);
-        V *src = leaf_values(srcnode);
-        memcpy(dst + dstindex, src + srcindex, count * sizeof(*src));
-    }
+    K *dks = leaf_keys(dstnode);
+    K *sks = leaf_keys(srcnode);
+    V *dvs = leaf_values(dstnode);
+    V *svs = leaf_values(srcnode);
+    memcpy(dks + dstindex, sks + srcindex, count * sizeof(*sks));
+    memcpy(dvs + dstindex, svs + srcindex, count * sizeof(*svs));
     /* note that the we copy the RIGHT child, hence the "+ 1" */
     if (height) {
-        leaf_node **dst = branch_children((branch_node *)dstnode) + 1;
-        leaf_node **src = branch_children((branch_node *)srcnode) + 1;
-        memcpy(dst + dstindex, src + srcindex, count * sizeof(*src));
+        leaf_node **dcs = branch_children(unsafe_leaf_as_branch(dstnode)) + 1;
+        leaf_node **scs = branch_children(unsafe_leaf_as_branch(srcnode)) + 1;
+        memcpy(dcs + dstindex, scs + srcindex, count * sizeof(*scs));
     }
 }
 
@@ -242,18 +238,14 @@ void move_elements(size_t height,
                    size_t srcindex,
                    size_t count)
 {
-    {
-        K *ptr = leaf_keys(node);
-        memmove(ptr + dstindex, ptr + srcindex, count * sizeof(*ptr));
-    }
-    {
-        V *ptr = leaf_values(node);
-        memmove(ptr + dstindex, ptr + srcindex, count * sizeof(*ptr));
-    }
+    K *ks = leaf_keys(node);
+    V *vs = leaf_values(node);
+    memmove(ks + dstindex, ks + srcindex, count * sizeof(*ks));
+    memmove(vs + dstindex, vs + srcindex, count * sizeof(*vs));
     /* note that the we move the RIGHT child, hence the "+ 1" */
     if (height) {
-        leaf_node **ptr = branch_children((branch_node *)node) + 1;
-        memmove(ptr + dstindex, ptr + srcindex, count * sizeof(*ptr));
+        leaf_node **cs = branch_children(unsafe_leaf_as_branch(node)) + 1;
+        memmove(cs + dstindex, cs + srcindex, count * sizeof(*cs));
     }
 }
 
@@ -263,20 +255,10 @@ void set_element(size_t height,
                  size_t index,
                  const struct element_ref *elem)
 {
-    {
-        K *dst = leaf_keys(node);
-        const K *src = elem->key;
-        dst[index] = *src;
-    }
-    {
-        V *dst = leaf_values(node);
-        const V *src = elem->value;
-        dst[index] = *src;
-    }
+    leaf_keys(node)[index] = *elem->key;
+    leaf_values(node)[index] = *elem->value;
     if (height) {
-        leaf_node **dst = branch_children((branch_node *)node) + 1;
-        leaf_node **src = elem->child;
-        dst[index] = *src;
+        branch_children(unsafe_leaf_as_branch(node))[index + 1] = *elem->child;
     }
 }
 
@@ -345,6 +327,28 @@ int insert_node_here(size_t height,
 }
 
 /** Return the node and the position within that node. */
+size_t raw_lookup_node(leaf_node **nodestack,
+                       size_t *istack,
+                       size_t height,
+                       leaf_node *node,
+                       const K *key)
+{
+    size_t h = 0;
+    while (1) {
+        /* this part depends on the comparison operation */
+        size_t i;
+        int r = linear_sorted_search(key, leaf_keys(node), *leaf_len(node), &i);
+        istack[h] = i;
+        nodestack[h] = node;
+        if (r || ++h >= height) {
+            break;
+        }
+        node = branch_children(unsafe_leaf_as_branch(node))[i];
+    }
+    return h;
+}
+
+/** Return the node and the position within that node. */
 int insert_node(size_t height,
                 leaf_node *node,
                 const K *key,
@@ -358,23 +362,11 @@ int insert_node(size_t height,
     ++height;
     MALLOCA(size_t, istack, height);
     MALLOCA(leaf_node *, nodestack, height);
-    /* this part can be packaged into its own "lookup" function */
-    while (1) {
-        /* this part depends on the comparison operation */
-        size_t i;
-        if (linear_sorted_search(key, leaf_keys(node), *leaf_len(node), &i)) {
-            /* exact match: just replace the value */
-            leaf_values(node)[i] = *value;
-            r = -1;
-            goto done;
-        }
-        istack[h] = i;
-        nodestack[h] = node;
-        ++h;
-        if (h >= height) {
-            break;
-        }
-        node = branch_children(unsafe_leaf_as_branch(node))[i];
+    h = raw_lookup_node(nodestack, istack, height, node, key);
+    if (h < height) {
+        leaf_values(nodestack[h])[istack[h]] = *value;
+        r = -1;
+        goto done;
     }
     /* the rest of it does not depend on the comparison operation, only on the
        layout of the structure */
@@ -528,7 +520,8 @@ void test_random_inserts(unsigned seed,
                 printf("insert(%zu, %f)\n", k, v);
             }
 #endif
-            assert(!btree_insert(t, &k, &v));
+            int r = btree_insert(t, &k, &v);
+            assert(!r);
 #ifndef PROFILE
             if (dump) {
                 dump_btree(t);
@@ -552,7 +545,7 @@ int main(void)
 
     printf("sizeof_leaf_node=%zu\n", sizeof(leaf_node));
 
-    test_random_inserts(25, 25, 25, 0);
+    test_random_inserts(25, 90, 90, 1);
 #ifdef PROFILE
     test_random_inserts(80, 1000000, 1000000, 0);
 #else
