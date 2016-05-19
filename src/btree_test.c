@@ -5,7 +5,7 @@
 #define K size_t
 #define V double
 #ifndef LOOKUP_METHOD
-#define LOOKUP_METHOD linear_sorted_search
+#define LOOKUP_METHOD linear_sorted_search_K_V
 #endif
 static inline
 int compare_K(const K *x, const K *y)
@@ -107,7 +107,7 @@ int main(void)
 
     printf("sizeof_leaf_node=%zu\n", sizeof(leaf_node));
 
-    test_random_inserts(25, 90, 90, 1);
+    test_random_inserts(25, 90, 90, 0);
     test_random_inserts(80, 10000, 10000, 0);
     test_random_inserts(100, 100, 300, 0);
     test_random_inserts(101, 100, 300, 0);

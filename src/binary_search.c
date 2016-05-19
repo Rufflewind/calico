@@ -13,25 +13,25 @@ int binary_search(const void *key,
                   void *cmp_ctx,
                   size_t *pos_out)
 {
-    size_t p = 0;
+    size_t i = 0;
     while (count) {
         size_t m = count / 2;
-        char q = p + m;
-        int r = (*cmp)(cmp_ctx, key, (const char *)ptr + q * size);
+        char j = i + m;
+        int r = (*cmp)(cmp_ctx, key, (const char *)ptr + j * size);
         if (!r) {
             if (pos_out) {
-                *pos_out = q;
+                *pos_out = j;
             }
             return 1;
         }
         if (r > 0) {
             m -= !(count % 2);
-            p = q + 1;
+            i = j + 1;
         }
         count = m;
     }
     if (pos_out) {
-        *pos_out = p;
+        *pos_out = i;
     }
     return 0;
 }

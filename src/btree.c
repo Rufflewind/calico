@@ -4,39 +4,30 @@
 #include <string.h>
 #include "malloca.h"
 
-/** Perform a linear search on a sorted array pointed by `ptr`.  If the search
-    was successful, `1` is returned and `*pos_out` is set to the index of the
-    element that compares equal to `key`.  Otherwise, `0` is returned and
-    `*pos_out` is set to the index of the smallest element greater than
-    `key`. */
+#include "linear_sorted_search.c"
+
 static inline
-int linear_sorted_search(const K *key,
-                         const K *ptr,
-                         size_t count,
-                         size_t *pos_out)
+int linear_sorted_search_K_V(const K *key,
+                             const K *ptr,
+                             size_t count,
+                             size_t *pos_out)
 {
-    int ret = 0;
-    size_t i = 0;
-    for (i = 0; i < count; ++i) {
-        int r = compare_K(key, ptr + i);
-        if (!r) {
-            ret = 1;
-        }
-        if (r <= 0) {
-            break;
-        }
-    }
-    *pos_out = i;
-    return ret;
+    return linear_sorted_search(key,
+                                ptr,
+                                count,
+                                sizeof(*ptr),
+                                &generic_compare_K,
+                                NULL,
+                                pos_out);
 }
 
 #include "binary_search.c"
 
 static inline
-int binary_sorted_search(const K *key,
-                         const K *ptr,
-                         size_t count,
-                         size_t *pos_out)
+int binary_sorted_search_K_V(const K *key,
+                             const K *ptr,
+                             size_t count,
+                             size_t *pos_out)
 {
     return binary_search(key,
                          ptr,
