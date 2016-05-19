@@ -42,14 +42,13 @@ void dummy(void *);
 #endif
 
 static
-void test_random_inserts(unsigned seed,
+void test_random_inserts(btree *t,
+                         unsigned seed,
                          unsigned range,
                          unsigned count,
                          int dump)
 {
-    btree bt, *t = &bt;
     char name[512];
-    init_btree(t);
     srand(seed);
     snprintf(name, sizeof(name), "random_inserts_%u_%u", range, count);
     TIME(name) {
@@ -92,7 +91,6 @@ void test_random_inserts(unsigned seed,
 #endif
         }
     }
-    reset_btree(t);
 }
 
 int main(void)
@@ -108,11 +106,26 @@ int main(void)
     printf("sizeof_leaf_node=%zu\n", sizeof(leaf_node));
     printf("max_height=%zu\n", MAX_HEIGHT);
 
-    test_random_inserts(25, 90, 90, 0);
-    test_random_inserts(80, 10000, 10000, 0);
-    test_random_inserts(100, 100, 300, 0);
-    test_random_inserts(101, 100, 300, 0);
-    test_random_inserts(105, 100, 300, 0);
+    reset_btree(t);
+    test_random_inserts(t, 25, 90, 90, 0);
+    reset_btree(t);
+    test_random_inserts(t, 80, 10000, 10000, 0);
+    reset_btree(t);
+    test_random_inserts(t, 100, 100, 300, 0);
+    reset_btree(t);
+    test_random_inserts(t, 101, 100, 300, 0);
+    reset_btree(t);
+    test_random_inserts(t, 105, 100, 300, 0);
+    reset_btree(t);
 
+    test_random_inserts(t, 1, 40, 40, 0);
+    dump_btree(t);
+    btree_cursor cur;
+    K k = 12;
+    btree_lookup(&cur, t, &k);
+    delete_at_cursor(t, &cur);
+    dump_btree(t);
+
+    reset_btree(t);
     return 0;
 }

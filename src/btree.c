@@ -134,7 +134,7 @@ typedef struct {
      (x) >= 2 ? 1 :                             \
      0)
 /* log2(UINTPTR_MAX / sizeof(leaf_node)) / log2(B) + 1 */
-#define MAX_HEIGHT \
+#define MAX_HEIGHT                                                      \
     ((CHAR_BIT * sizeof(void *) - MINLOG2(sizeof(leaf_node))) / MINLOG2(B) + 1)
 #endif
 
@@ -172,9 +172,7 @@ void free_node(height_type height, leaf_node *m)
 void reset_btree(btree *m)
 {
     free_node(m->_height - 1, m->_root);
-    m->_len = 0;
-    m->_height = 0;
-    m->_root = NULL;
+    init_btree(m);
 }
 
 child_index_type btree_len(const btree *m)
@@ -210,11 +208,7 @@ height_type raw_lookup_node(leaf_node **nodestack,
     height_type h = 0;
     assert(height);
     nodestack[0] = node;
-    while ((node = lookup_iter(&istack[h],
-                               nodestack[h],
-                               &h,
-                               height,
-                               key))) {
+    while ((node = lookup_iter(&istack[h], nodestack[h], &h, height, key))) {
         nodestack[h] = node;
     }
     return h;
@@ -339,6 +333,18 @@ void set_element(int is_branch,
     leaf_values(node)[index] = *elem->value;
     if (is_branch) {
         branch_children(unsafe_leaf_as_branch(node))[index + 1] = *elem->child;
+    }
+}
+
+static inline
+void move_element(struct element_ref *dstelem,
+                  const struct element_ref *srcelem)
+{
+    assert(!!dstelem->child == !!srcelem->child);
+    *dstelem->key = *srcelem->key;
+    *dstelem->value = *srcelem->value;
+    if (srcelem->child) {
+        *dstelem->child = *srcelem->child;
     }
 }
 
@@ -496,19 +502,33 @@ int btree_insert(btree *m, const K *key, const V *value)
 
 void delete_at_cursor(btree *m, btree_cursor *cur)
 {
-    height_type h = m->_height - cur->_depth;
-    // nodestack[height - h] = node;
-    // while ((node = lookup_iter(&istack[height - h],
-    //                            nodestack[height - h],
-    //                            &h,
-    //                            key))) {
-    //     nodestack[height - h] = node;
-    //     node = lookup_iter(&istack[height - h],
-    //                            nodestack[height - h],
-    //                            &h,
-    //                            key);
-    // }
-    // return height - h;
+    height_type depth = cur->_depth;
+    height_type height = m->_height;
+    /* disallow iterators that don't point to an exact element */
+    assert(depth < height);
+
+    /* if node is not leaf, swap with the nearest leaf to the left */
+    if (depth < height - 1) {
+        height_type h = depth;
+        leaf_node *uppernode = cur->_nodestack[depth];
+        child_index_type upperi = cur->_istack[depth];
+        K *key = &leaf_keys(uppernode)[upperi];
+        leaf_node *node = uppernode;
+        size_t i = upperi;
+        ++h;
+        do {
+            node = branch_children(unsafe_leaf_as_branch(node))[i];
+            cur->_nodestack[h] = node;
+            i = *leaf_len(node);
+            cur->_istack[h] = i;
+            ++h;
+        } while (h < height);
+        --cur->_istack[height - 1];
+        leaf_node *lowernode = cur->_nodestack[height - 1];
+        child_index_type loweri = cur->_istack[height - 1];
+        *key = leaf_keys(lowernode)[loweri];
+        leaf_values(uppernode)[upperi] = leaf_values(lowernode)[loweri];
+    }
 // TODO
 }
 
