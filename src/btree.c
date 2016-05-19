@@ -197,18 +197,17 @@ leaf_node *find_node(size_t height,
                      const K *key,
                      size_t *index)
 {
+    size_t i;
+    leaf_node *newnode;
     ++height;
-    MALLOCA(size_t, istack, height);
-    MALLOCA(leaf_node *, nodestack, height);
-    size_t h = raw_lookup_node(nodestack, istack, height, node, key);
-    leaf_node *ret = NULL;
-    if (h != height) {
-        ret = nodestack[h];
-        *index = istack[h];
+    while ((newnode = lookup_iter(&i, node, &height, key))) {
+        node = newnode;
     }
-    FREEA(nodestack);
-    FREEA(istack);
-    return ret;
+    if (!height) {
+        return NULL;
+    }
+    *index = i;
+    return node;
 }
 
 /** Return the node and the position within that node. */
