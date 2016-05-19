@@ -1,24 +1,3 @@
-#include <stddef.h>
-#ifndef B
-#define B 5
-#endif
-#define K size_t
-#define V double
-#ifndef LOOKUP_METHOD
-#define LOOKUP_METHOD linear_sorted_search
-#endif
-static inline
-int compare_K(const K *x, const K *y)
-{
-    return (*x > *y) - (*x < *y);
-}
-static inline
-int generic_compare_K(void *ctx, const void *x, const void *y)
-{
-    (void)ctx;
-    return compare_K((const K *)x, (const K *)y);
-}
-
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h> /* for printing error messages */
@@ -133,9 +112,9 @@ branch_node *unsafe_leaf_as_branch(leaf_node *m)
 
 /** May return NULL if it's not a branch. */
 static inline
-branch_node *try_leaf_as_branch(size_t height, leaf_node *m)
+branch_node *try_leaf_as_branch(int is_branch, leaf_node *m)
 {
-    if (!height) {
+    if (!is_branch) {
         return NULL;
     }
     return unsafe_leaf_as_branch(m);
@@ -181,22 +160,56 @@ size_t btree_len(const btree *m)
 }
 
 /** Return the node and the position within that node. */
+size_t raw_lookup_node(leaf_node **nodestack,
+                       size_t *istack,
+                       size_t height,
+                       leaf_node *node,
+                       const K *key)
+{
+    size_t h = 0;
+    while (1) {
+        /* this part depends on the comparison operation */
+        size_t i;
+        int r = LOOKUP_METHOD(key, leaf_keys(node), *leaf_len(node), &i);
+        istack[h] = i;
+        nodestack[h] = node;
+        if (r || ++h >= height) {
+            break;
+        }
+        node = branch_children(unsafe_leaf_as_branch(node))[i];
+    }
+    return h;
+}
+
+/** Return the node and the position within that node. */
 leaf_node *find_node(size_t height,
                      leaf_node *node,
                      const K *key,
                      size_t *index)
 {
-    size_t i;
-    if (LOOKUP_METHOD(key, leaf_keys(node), *leaf_len(node), &i)) {
-        *index = i;
-        return node;
+    ++height;
+    MALLOCA(size_t, istack, height);
+    MALLOCA(leaf_node *, nodestack, height);
+    size_t h = raw_lookup_node(nodestack, istack, height, node, key);
+    leaf_node *ret = NULL;
+    if (h != height) {
+        ret = nodestack[h];
+        *index = istack[h];
     }
-    branch_node *nodeb = try_leaf_as_branch(height, node);
-    if (!nodeb) {
-        return NULL;
-    }
-    --height;
-    return find_node(height, branch_children(nodeb)[i], key, index);
+    FREEA(nodestack);
+    FREEA(istack);
+    return ret;
+    // size_t i;
+    // if (LOOKUP_METHOD(key, leaf_keys(node), *leaf_len(node), &i)) {
+    //     *index = i;
+    //     return node;
+    // }
+    // branch_node *nodeb = try_leaf_as_branch(height, node);
+    // if (!nodeb) {
+    //     return NULL;
+    // }
+    // --height;
+    // return find_node(height, branch_children(nodeb)[i], key, index);
 }
 
 /** Return the node and the position within that node. */
@@ -207,7 +220,7 @@ leaf_node *btree_get_node(btree *m, const K *key, size_t *index)
         assert(m->_len == 0);
         return NULL;
     }
-    return find_node(m->_height, m->_root, key, index);
+    return find_node(m->_height - 1, m->_root, key, index);
 }
 
 #ifdef V
@@ -352,28 +365,6 @@ int insert_node_here(int is_branch,
     return -2;
 }
 
-/** Return the node and the position within that node. */
-size_t raw_lookup_node(leaf_node **nodestack,
-                       size_t *istack,
-                       size_t height,
-                       leaf_node *node,
-                       const K *key)
-{
-    size_t h = 0;
-    while (1) {
-        /* this part depends on the comparison operation */
-        size_t i;
-        int r = linear_sorted_search(key, leaf_keys(node), *leaf_len(node), &i);
-        istack[h] = i;
-        nodestack[h] = node;
-        if (r || ++h >= height) {
-            break;
-        }
-        node = branch_children(unsafe_leaf_as_branch(node))[i];
-    }
-    return h;
-}
-
 int insert_node(size_t height,
                 leaf_node *node,
                 const K *key,
@@ -499,77 +490,4 @@ void dump_btree(btree *m)
         dump_node(0, m->_height - 1, m->_root);
     }
     printf("----------------------------------------\n");
-}
-
-#include "wclock.h"
-static wclock clk;
-#ifdef PROFILE
-static int timing_counter;
-static double clk_time;
-#define TIME(name)                                                      \
-    for (clk_time = get_wclock(&clk), timing_counter = 0;               \
-         !timing_counter;                                               \
-         ++timing_counter,                                              \
-         printf("time_%s=%.6g\n", name, get_wclock(&clk) - clk_time))
-#else
-#define TIME(name)
-#endif
-
-static
-void test_random_inserts(unsigned seed,
-                         unsigned range,
-                         unsigned count,
-                         int dump)
-{
-    btree bt, *t = &bt;
-    char name[512];
-    init_btree(t);
-    srand(seed);
-    snprintf(name, sizeof(name), "random_inserts_%u_%u", range, count);
-    TIME(name) {
-        for (unsigned i = 0; i < count; ++i) {
-            size_t k = (unsigned)rand() % range;
-            double v = (double)((unsigned)rand() % range);
-#ifndef PROFILE
-            if (dump) {
-                printf("insert(%zu, %f)\n", k, v);
-            }
-#endif
-            int r = btree_insert(t, &k, &v);
-            (void)r;
-            assert(!r);
-#ifndef PROFILE
-            if (dump) {
-                dump_btree(t);
-            }
-            assert(*btree_get(t, &k) == v);
-#endif
-        }
-    }
-    reset_btree(t);
-}
-
-int main(void)
-{
-    btree bt, *t = &bt;
-    init_wclock(&clk);
-
-    init_btree(t);
-    reset_btree(t);
-
-#define ITERATOR_HEIGHT (UINTPTR_MAX / sizeof(leaf_node))
-
-    printf("sizeof_leaf_node=%zu\n", sizeof(leaf_node));
-
-    test_random_inserts(25, 90, 90, 1);
-#ifdef PROFILE
-    test_random_inserts(80, 1000000, 1000000, 0);
-#else
-    test_random_inserts(80, 10000, 10000, 0);
-#endif
-    test_random_inserts(100, 100, 300, 0);
-    test_random_inserts(101, 100, 300, 0);
-    test_random_inserts(105, 100, 300, 0);
-
-    return 0;
 }

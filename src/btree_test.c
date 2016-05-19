@@ -1,69 +1,121 @@
-#include <assert.h>
-#include <stdint.h>
-#define Type(x) int64_t x
-#define KeysPerNode 8
-#include "btree.inl"
-#include "bsearch_Type.h"
-
-int test_bsearch(int64_t **pptr,
-                 size_t count,
-                 const int64_t *key,
-                 void *cmp_ctx)
+#include <stddef.h>
+#ifndef B
+#define B 8
+#endif
+#define K size_t
+#define V double
+#ifndef LOOKUP_METHOD
+#define LOOKUP_METHOD linear_sorted_search
+#endif
+static inline
+int compare_K(const K *x, const K *y)
 {
-    return rf_bsearch_int64_t(key, pptr, count, cmp_ctx);
+    return (*x > *y) - (*x < *y);
+}
+static inline
+int generic_compare_K(void *ctx, const void *x, const void *y)
+{
+    (void)ctx;
+    return compare_K((const K *)x, (const K *)y);
+}
+
+#include "btree.c"
+
+#include "wclock.h"
+static wclock clk;
+#ifdef PROFILE
+static int timing_counter;
+static double clk_time;
+#define TIME(name)                                                      \
+    for (clk_time = get_wclock(&clk), timing_counter = 0;               \
+         !timing_counter;                                               \
+         ++timing_counter,                                              \
+         printf("time_%s=%.6g\n", name, get_wclock(&clk) - clk_time))
+#else
+#define TIME(name)
+#endif
+
+#ifdef PROFILE
+void dummy(void *);
+#else
+#define dummy(x) (void)(x)
+#endif
+
+static
+void test_random_inserts(unsigned seed,
+                         unsigned range,
+                         unsigned count,
+                         int dump)
+{
+    btree bt, *t = &bt;
+    char name[512];
+    init_btree(t);
+    srand(seed);
+    snprintf(name, sizeof(name), "random_inserts_%u_%u", range, count);
+    TIME(name) {
+        for (unsigned i = 0; i < count; ++i) {
+            size_t k = (unsigned)rand() % range;
+            double v = (double)((unsigned)rand() % range);
+#ifdef BASE
+            dummy(&k);
+#else
+#ifndef PROFILE
+            if (dump) {
+                printf("insert(%zu, %f)\n", k, v);
+            }
+#endif
+            int r = btree_insert(t, &k, &v);
+            (void)r;
+            assert(!r);
+#ifndef PROFILE
+            if (dump) {
+                dump_btree(t);
+            }
+            assert(*btree_get(t, &k) == v);
+#endif
+#endif
+        }
+    }
+    snprintf(name, sizeof(name), "random_lookups_%u_%u", range, count);
+    TIME(name) {
+        for (unsigned i = 0; i < count; ++i) {
+            size_t k = (unsigned)rand() % range;
+#ifdef BASE
+            dummy(&k);
+#else
+// #ifndef PROFILE
+//             if (dump) {
+//                 printf("lookup(%zu)\n", k);
+//             }
+// #endif
+            dummy(btree_get(t, &k));
+#endif
+        }
+    }
+    reset_btree(t);
 }
 
 int main(void)
 {
-    Type(a[]) = {2, 3, 6, 8, 12};
+    btree bt, *t = &bt;
+    init_wclock(&clk);
 
-    Type(*p);
-    Type(k);
+    init_btree(t);
+    reset_btree(t);
 
-    p = a;
-    k = 0;
-    assert(!test_bsearch(&p, sizeof(a) / sizeof(*a), &k, NULL));
-    assert(p - a == 0);
+#define ITERATOR_HEIGHT (UINTPTR_MAX / sizeof(leaf_node))
 
-    p = a;
-    k = 2;
-    assert(test_bsearch(&p, sizeof(a) / sizeof(*a), &k, NULL));
-    assert(p - a == 0);
+    printf("sizeof_leaf_node=%zu\n", sizeof(leaf_node));
 
-    p = a;
-    k = 3;
-    assert(test_bsearch(&p, sizeof(a) / sizeof(*a), &k, NULL));
-    assert(p - a == 1);
-
-    p = a;
-    k = 6;
-    assert(test_bsearch(&p, sizeof(a) / sizeof(*a), &k, NULL));
-    assert(p - a == 2);
-
-    p = a;
-    k = 7;
-    assert(!test_bsearch(&p, sizeof(a) / sizeof(*a), &k, NULL));
-    assert(p - a == 3);
-
-    p = a;
-    k = 8;
-    assert(test_bsearch(&p, sizeof(a) / sizeof(*a), &k, NULL));
-    assert(p - a == 3);
-
-    p = a;
-    k = 9;
-    assert(!test_bsearch(&p, sizeof(a) / sizeof(*a), &k, NULL));
-    assert(p - a == 4);
-
-    p = a;
-    k = 12;
-    assert(test_bsearch(&p, sizeof(a) / sizeof(*a), &k, NULL));
-    assert(p - a == 4);
-
-    p = a;
-    k = 14;
-    assert(!test_bsearch(&p, sizeof(a) / sizeof(*a), &k, NULL));
-    assert(p - a == 5);
+    test_random_inserts(25, 90, 90, 1);
+#ifdef PROFILE
+    test_random_inserts(80, 1000000, 1000000, 0);
+#else
+    test_random_inserts(80, 10000, 10000, 0);
+#endif
+    test_random_inserts(100, 100, 300, 0);
+    test_random_inserts(101, 100, 300, 0);
+    test_random_inserts(105, 100, 300, 0);
 
     return 0;
 }
