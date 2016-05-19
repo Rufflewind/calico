@@ -106,6 +106,7 @@ int main(void)
 #define ITERATOR_HEIGHT (UINTPTR_MAX / sizeof(leaf_node))
 
     printf("sizeof_leaf_node=%zu\n", sizeof(leaf_node));
+    printf("max_height=%zu\n", MAX_HEIGHT);
 
     test_random_inserts(25, 90, 90, 0);
     test_random_inserts(80, 10000, 10000, 0);

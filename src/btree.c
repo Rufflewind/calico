@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <limits.h> /* for CHAR_BIT */
 #include <stdlib.h>
 #include <stdio.h> /* for printing error messages */
 #include <string.h>
@@ -38,10 +39,13 @@ int binary_sorted_search_K_V(const K *key,
                          pos_out);
 }
 
+typedef unsigned short child_index_type;
+typedef unsigned char height_type;
+
 typedef struct {
     /* the number of valid keys (or number of valid values),
        ranging from 0 to 2 * B - 1 */
-    size_t _len;
+    child_index_type _len;
     /* an array of keys, with [0, _len) valid */
     K _keys[2 * B - 1];
 #ifdef V
@@ -58,7 +62,7 @@ struct element_ref {
 };
 
 static inline
-size_t *leaf_len(leaf_node *m)
+child_index_type *leaf_len(leaf_node *m)
 {
     return &m->_len;
 }
@@ -112,10 +116,38 @@ branch_node *try_leaf_as_branch(int is_branch, leaf_node *m)
 }
 
 typedef struct {
-    size_t _len;
-    size_t _height;
     leaf_node *_root;
+    child_index_type _len;
+    height_type _height;
 } btree;
+
+#ifndef MAX_HEIGHT
+/* Obtain a lower bound on the logarithm of a number */
+#define MINLOG2(x)                              \
+    ((x) >= 256 ? 8 :                           \
+     (x) >= 128 ? 7 :                           \
+     (x) >= 64 ? 6 :                            \
+     (x) >= 32 ? 5 :                            \
+     (x) >= 16 ? 4 :                            \
+     (x) >= 8 ? 3 :                             \
+     (x) >= 4 ? 2 :                             \
+     (x) >= 2 ? 1 :                             \
+     0)
+/* log2(UINTPTR_MAX / sizeof(leaf_node)) / log2(B) + 1 */
+#define MAX_HEIGHT \
+    ((CHAR_BIT * sizeof(void *) - MINLOG2(sizeof(leaf_node))) / MINLOG2(B) + 1)
+#endif
+
+#include "compat/static_assert_begin.h"
+static_assert((height_type)MAX_HEIGHT == MAX_HEIGHT, "height is too big");
+static_assert((child_index_type)B == B, "B is too big");
+#include "compat/static_assert_end.h"
+
+typedef struct {
+    leaf_node *_nodestack[MAX_HEIGHT];
+    child_index_type _istack[MAX_HEIGHT];
+    height_type _depth;
+} btree_cursor;
 
 void init_btree(btree *m)
 {
@@ -125,11 +157,11 @@ void init_btree(btree *m)
 }
 
 static
-void free_node(size_t height, leaf_node *m)
+void free_node(height_type height, leaf_node *m)
 {
     branch_node *mb = try_leaf_as_branch(height, m);
     if (mb) {
-        for (size_t i = 0; i < *leaf_len(m) + 1; ++i) {
+        for (child_index_type i = 0; i < *leaf_len(m) + 1; ++i) {
             free_node(height - 1, branch_children(mb)[i]);
         }
     }
@@ -145,18 +177,20 @@ void reset_btree(btree *m)
     m->_root = NULL;
 }
 
-size_t btree_len(const btree *m)
+child_index_type btree_len(const btree *m)
 {
     return m->_len;
 }
 
 static inline
-leaf_node *lookup_iter(size_t *i_out,
+leaf_node *lookup_iter(child_index_type *i_out,
                        leaf_node *node,
-                       size_t *h,
+                       height_type *h,
                        const K *key)
 {
-    int r = LOOKUP_METHOD(key, leaf_keys(node), *leaf_len(node), i_out);
+    size_t i;
+    int r = LOOKUP_METHOD(key, leaf_keys(node), *leaf_len(node), &i);
+    *i_out = (child_index_type)i;
     if (r || !--*h) {
         return NULL;
     }
@@ -164,13 +198,13 @@ leaf_node *lookup_iter(size_t *i_out,
 }
 
 /** Return the node and the position within that node. */
-size_t raw_lookup_node(leaf_node **nodestack,
-                       size_t *istack,
-                       size_t height,
-                       leaf_node *node,
-                       const K *key)
+height_type raw_lookup_node(leaf_node **nodestack,
+                            child_index_type *istack,
+                            height_type height,
+                            leaf_node *node,
+                            const K *key)
 {
-    size_t h = height;
+    height_type h = height;
     assert(height);
     nodestack[0] = node;
     while ((node = lookup_iter(&istack[height - h],
@@ -182,13 +216,27 @@ size_t raw_lookup_node(leaf_node **nodestack,
     return height - h;
 }
 
+void btree_lookup(btree_cursor *cur, btree *m, const K *key)
+{
+    assert(m->_height <= MAX_HEIGHT);
+    if (!m->_height) {
+        cur->_depth = 0;
+        return;
+    }
+    cur->_depth = raw_lookup_node(cur->_nodestack,
+                                  cur->_istack,
+                                  m->_height,
+                                  m->_root,
+                                  key);
+}
+
 /** Return the node and the position within that node. */
-leaf_node *find_node(size_t height,
+leaf_node *find_node(height_type height,
                      leaf_node *node,
                      const K *key,
-                     size_t *index)
+                     child_index_type *index)
 {
-    size_t i;
+    child_index_type i;
     leaf_node *newnode;
     ++height;
     while ((newnode = lookup_iter(&i, node, &height, key))) {
@@ -202,7 +250,7 @@ leaf_node *find_node(size_t height,
 }
 
 /** Return the node and the position within that node. */
-leaf_node *btree_get_node(btree *m, const K *key, size_t *index)
+leaf_node *btree_get_node(btree *m, const K *key, child_index_type *index)
 {
     if (!m->_root) {
         assert(m->_height == 0);
@@ -216,7 +264,7 @@ leaf_node *btree_get_node(btree *m, const K *key, size_t *index)
 
 V *btree_get(btree *m, const K *k)
 {
-    size_t i;
+    child_index_type i;
     leaf_node *n = btree_get_node(m, k, &i);
     if (!n) {
         return NULL;
@@ -233,7 +281,7 @@ const V *btree_get_const(const btree *m, const K *k)
 
 int btree_in(const btree *m, const K *k)
 {
-    size_t i;
+    child_index_type i;
     return !!btree_get_node((btree *)m, k, &i);
 }
 
@@ -280,7 +328,7 @@ void move_elements(int is_branch,
 static inline
 void set_element(int is_branch,
                  leaf_node *node,
-                 size_t index,
+                 child_index_type index,
                  const struct element_ref *elem)
 {
     leaf_keys(node)[index] = *elem->key;
@@ -292,13 +340,13 @@ void set_element(int is_branch,
 
 int insert_node_here(int is_branch,
                      leaf_node *node,
-                     size_t i,
+                     child_index_type i,
                      /* the `const` here is just placebo, but still: don't try
                         to modify the values that its members point to*/
                      const struct element_ref *elem,
                      struct element_ref *elem_out)
 {
-    size_t len = *leaf_len(node);
+    child_index_type len = *leaf_len(node);
 
     /* case A: enough room to do a simple insert */
     if (len < 2 * B - 1) {
@@ -331,7 +379,7 @@ int insert_node_here(int is_branch,
         *elem_out->key = *elem->key;
         *elem_out->value = *elem->value;
     } else {
-        size_t mid = i < B ? B - 1 : B;
+        child_index_type mid = i < B ? B - 1 : B;
         K midkey = leaf_keys(node)[mid];;
         V midvalue = leaf_values(node)[mid];
         if (is_branch) {
@@ -354,7 +402,7 @@ int insert_node_here(int is_branch,
     return -2;
 }
 
-int insert_node(size_t height,
+int insert_node(height_type height,
                 leaf_node *node,
                 const K *key,
                 const V *value,
@@ -363,9 +411,9 @@ int insert_node(size_t height,
                 leaf_node **child_inout)
 {
     int r;
-    size_t h = 0;
+    height_type h = 0;
     ++height;
-    MALLOCA(size_t, istack, height);
+    MALLOCA(child_index_type, istack, height);
     MALLOCA(leaf_node *, nodestack, height);
     h = raw_lookup_node(nodestack, istack, height, node, key);
     if (h != height) {
@@ -443,14 +491,19 @@ int btree_insert(btree *m, const K *key, const V *value)
     return 0;
 }
 
+void delete_at_cursor(btree *m, btree_cursor *cur)
+{
+// TODO
+}
+
 #define INDENT 2
 
 static
-void dump_node(size_t indent, size_t height, leaf_node *m)
+void dump_node(size_t indent, height_type height, leaf_node *m)
 {
     // printf("dump_node(%p)\n", (void *)m);
     branch_node *mb = try_leaf_as_branch(height, m);
-    size_t i;
+    child_index_type i;
     for (i = 0; i < *leaf_len(m); ++i) {
         if (mb) {
             dump_node(indent + INDENT, height - 1, branch_children(mb)[i]);
