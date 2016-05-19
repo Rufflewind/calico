@@ -159,6 +159,19 @@ size_t btree_len(const btree *m)
     return m->_len;
 }
 
+static inline
+leaf_node *lookup_iter(size_t *i_out,
+                       leaf_node *node,
+                       size_t *h,
+                       const K *key)
+{
+    int r = LOOKUP_METHOD(key, leaf_keys(node), *leaf_len(node), i_out);
+    if (r || !--*h) {
+        return NULL;
+    }
+    return branch_children(unsafe_leaf_as_branch(node))[*i_out];
+}
+
 /** Return the node and the position within that node. */
 size_t raw_lookup_node(leaf_node **nodestack,
                        size_t *istack,
@@ -166,19 +179,16 @@ size_t raw_lookup_node(leaf_node **nodestack,
                        leaf_node *node,
                        const K *key)
 {
-    size_t h = 0;
-    while (1) {
-        /* this part depends on the comparison operation */
-        size_t i;
-        int r = LOOKUP_METHOD(key, leaf_keys(node), *leaf_len(node), &i);
-        istack[h] = i;
-        nodestack[h] = node;
-        if (r || ++h >= height) {
-            break;
-        }
-        node = branch_children(unsafe_leaf_as_branch(node))[i];
+    size_t h = height;
+    assert(height);
+    nodestack[0] = node;
+    while ((node = lookup_iter(&istack[height - h],
+                               nodestack[height - h],
+                               &h,
+                               key))) {
+        nodestack[height - h] = node;
     }
-    return h;
+    return height - h;
 }
 
 /** Return the node and the position within that node. */
@@ -199,17 +209,6 @@ leaf_node *find_node(size_t height,
     FREEA(nodestack);
     FREEA(istack);
     return ret;
-    // size_t i;
-    // if (LOOKUP_METHOD(key, leaf_keys(node), *leaf_len(node), &i)) {
-    //     *index = i;
-    //     return node;
-    // }
-    // branch_node *nodeb = try_leaf_as_branch(height, node);
-    // if (!nodeb) {
-    //     return NULL;
-    // }
-    // --height;
-    // return find_node(height, branch_children(nodeb)[i], key, index);
 }
 
 /** Return the node and the position within that node. */
