@@ -108,11 +108,7 @@ int main(void)
     printf("sizeof_leaf_node=%zu\n", sizeof(leaf_node));
 
     test_random_inserts(25, 90, 90, 1);
-#ifdef PROFILE
-    test_random_inserts(80, 1000000, 1000000, 0);
-#else
     test_random_inserts(80, 10000, 10000, 0);
-#endif
     test_random_inserts(100, 100, 300, 0);
     test_random_inserts(101, 100, 300, 0);
     test_random_inserts(105, 100, 300, 0);

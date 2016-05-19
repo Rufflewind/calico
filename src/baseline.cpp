@@ -14,6 +14,8 @@ static double clk_time;
          ++timing_counter,                                              \
          printf("time_%s=%.6g\n", name, get_wclock(&clk) - clk_time))
 
+void dummy(void *);
+
 static
 void test_random_inserts(unsigned seed,
                          unsigned range,
@@ -29,9 +31,17 @@ void test_random_inserts(unsigned seed,
             size_t k = (unsigned)rand() % range;
             double v = (double)((unsigned)rand() % range);
             t[k] = v;
+            dummy(&t[k]);
 #ifndef PROFILE
             assert(t[k] == v);
 #endif
+        }
+    }
+    snprintf(name, sizeof(name), "random_lookups_%u_%u", range, count);
+    TIME(name) {
+        for (unsigned i = 0; i < count; ++i) {
+            size_t k = (unsigned)rand() % range;
+            dummy(&t[k]);
         }
     }
 }
@@ -39,6 +49,5 @@ void test_random_inserts(unsigned seed,
 int main(void)
 {
     init_wclock(&clk);
-
-    test_random_inserts(80, 1000000, 1000000, 0);
+    test_random_inserts(80, 10000, 10000, 0);
 }
