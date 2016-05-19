@@ -186,12 +186,15 @@ static inline
 leaf_node *lookup_iter(child_index_type *i_out,
                        leaf_node *node,
                        height_type *h,
+                       height_type height,
                        const K *key)
 {
     size_t i;
-    int r = LOOKUP_METHOD(key, leaf_keys(node), *leaf_len(node), &i);
+    int r;
+    assert(height);
+    r = LOOKUP_METHOD(key, leaf_keys(node), *leaf_len(node), &i);
     *i_out = (child_index_type)i;
-    if (r || !--*h) {
+    if (r || ++*h >= height) {
         return NULL;
     }
     return branch_children(unsafe_leaf_as_branch(node))[*i_out];
@@ -204,16 +207,17 @@ height_type raw_lookup_node(leaf_node **nodestack,
                             leaf_node *node,
                             const K *key)
 {
-    height_type h = height;
+    height_type h = 0;
     assert(height);
     nodestack[0] = node;
-    while ((node = lookup_iter(&istack[height - h],
-                               nodestack[height - h],
+    while ((node = lookup_iter(&istack[h],
+                               nodestack[h],
                                &h,
+                               height,
                                key))) {
-        nodestack[height - h] = node;
+        nodestack[h] = node;
     }
-    return height - h;
+    return h;
 }
 
 void btree_lookup(btree_cursor *cur, btree *m, const K *key)
@@ -237,12 +241,12 @@ leaf_node *find_node(height_type height,
                      child_index_type *index)
 {
     child_index_type i;
+    height_type h = 0;
     leaf_node *newnode;
-    ++height;
-    while ((newnode = lookup_iter(&i, node, &height, key))) {
+    while ((newnode = lookup_iter(&i, node, &h, height, key))) {
         node = newnode;
     }
-    if (!height) {
+    if (h == height) {
         return NULL;
     }
     *index = i;
@@ -257,7 +261,7 @@ leaf_node *btree_get_node(btree *m, const K *key, child_index_type *index)
         assert(m->_len == 0);
         return NULL;
     }
-    return find_node(m->_height - 1, m->_root, key, index);
+    return find_node(m->_height, m->_root, key, index);
 }
 
 #ifdef V
@@ -412,7 +416,6 @@ int insert_node(height_type height,
 {
     int r;
     height_type h = 0;
-    ++height;
     MALLOCA(child_index_type, istack, height);
     MALLOCA(leaf_node *, nodestack, height);
     h = raw_lookup_node(nodestack, istack, height, node, key);
@@ -456,7 +459,7 @@ int btree_insert(btree *m, const K *key, const V *value)
     K newkey;
     V newvalue;
     leaf_node *newchild;
-    int r = insert_node(m->_height - 1,
+    int r = insert_node(m->_height,
                         m->_root,
                         key,
                         value,
@@ -493,6 +496,19 @@ int btree_insert(btree *m, const K *key, const V *value)
 
 void delete_at_cursor(btree *m, btree_cursor *cur)
 {
+    height_type h = m->_height - cur->_depth;
+    // nodestack[height - h] = node;
+    // while ((node = lookup_iter(&istack[height - h],
+    //                            nodestack[height - h],
+    //                            &h,
+    //                            key))) {
+    //     nodestack[height - h] = node;
+    //     node = lookup_iter(&istack[height - h],
+    //                            nodestack[height - h],
+    //                            &h,
+    //                            key);
+    // }
+    // return height - h;
 // TODO
 }
 
