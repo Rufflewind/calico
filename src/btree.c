@@ -4,10 +4,19 @@
 #endif
 #define K size_t
 #define V double
+#ifndef LOOKUP_METHOD
+#define LOOKUP_METHOD linear_sorted_search
+#endif
 static inline
 int compare_K(const K *x, const K *y)
 {
     return (*x > *y) - (*x < *y);
+}
+static inline
+int generic_compare_K(void *ctx, const void *x, const void *y)
+{
+    (void)ctx;
+    return compare_K((const K *)x, (const K *)y);
 }
 
 #include <assert.h>
@@ -40,6 +49,23 @@ int linear_sorted_search(const K *key,
     }
     *pos_out = i;
     return ret;
+}
+
+#include "binary_search.c"
+
+static inline
+int binary_sorted_search(const K *key,
+                         const K *ptr,
+                         size_t count,
+                         size_t *pos_out)
+{
+    return binary_search(key,
+                         ptr,
+                         count,
+                         sizeof(*ptr),
+                         &generic_compare_K,
+                         NULL,
+                         pos_out);
 }
 
 typedef struct {
@@ -161,7 +187,7 @@ leaf_node *find_node(size_t height,
                      size_t *index)
 {
     size_t i;
-    if (linear_sorted_search(key, leaf_keys(node), *leaf_len(node), &i)) {
+    if (LOOKUP_METHOD(key, leaf_keys(node), *leaf_len(node), &i)) {
         *index = i;
         return node;
     }
@@ -210,7 +236,7 @@ int btree_in(const btree *m, const K *k)
 }
 
 static inline
-void copy_elements(size_t height,
+void copy_elements(int is_branch,
                    leaf_node *restrict dstnode,
                    leaf_node *restrict srcnode,
                    size_t dstindex,
@@ -224,7 +250,7 @@ void copy_elements(size_t height,
     memcpy(dks + dstindex, sks + srcindex, count * sizeof(*sks));
     memcpy(dvs + dstindex, svs + srcindex, count * sizeof(*svs));
     /* note that the we copy the RIGHT child, hence the "+ 1" */
-    if (height) {
+    if (is_branch) {
         leaf_node **dcs = branch_children(unsafe_leaf_as_branch(dstnode)) + 1;
         leaf_node **scs = branch_children(unsafe_leaf_as_branch(srcnode)) + 1;
         memcpy(dcs + dstindex, scs + srcindex, count * sizeof(*scs));
@@ -232,7 +258,7 @@ void copy_elements(size_t height,
 }
 
 static inline
-void move_elements(size_t height,
+void move_elements(int is_branch,
                    leaf_node *node,
                    size_t dstindex,
                    size_t srcindex,
@@ -243,26 +269,26 @@ void move_elements(size_t height,
     memmove(ks + dstindex, ks + srcindex, count * sizeof(*ks));
     memmove(vs + dstindex, vs + srcindex, count * sizeof(*vs));
     /* note that the we move the RIGHT child, hence the "+ 1" */
-    if (height) {
+    if (is_branch) {
         leaf_node **cs = branch_children(unsafe_leaf_as_branch(node)) + 1;
         memmove(cs + dstindex, cs + srcindex, count * sizeof(*cs));
     }
 }
 
 static inline
-void set_element(size_t height,
+void set_element(int is_branch,
                  leaf_node *node,
                  size_t index,
                  const struct element_ref *elem)
 {
     leaf_keys(node)[index] = *elem->key;
     leaf_values(node)[index] = *elem->value;
-    if (height) {
+    if (is_branch) {
         branch_children(unsafe_leaf_as_branch(node))[index + 1] = *elem->child;
     }
 }
 
-int insert_node_here(size_t height,
+int insert_node_here(int is_branch,
                      leaf_node *node,
                      size_t i,
                      /* the `const` here is just placebo, but still: don't try
@@ -274,8 +300,8 @@ int insert_node_here(size_t height,
 
     /* case A: enough room to do a simple insert */
     if (len < 2 * B - 1) {
-        move_elements(height, node, i + 1, i, len - i);
-        set_element(height, node, i, elem);
+        move_elements(is_branch, node, i + 1, i, len - i);
+        set_element(is_branch, node, i, elem);
         ++*leaf_len(node);
         return 0;
     }
@@ -283,7 +309,7 @@ int insert_node_here(size_t height,
     /* case B: not enough room; need to split node */
     assert(len == 2 * B - 1);
     leaf_node *newnode = (leaf_node *)malloc(
-        height ?
+        is_branch ?
         sizeof(branch_node) :
         sizeof(leaf_node));
     if (!newnode) {
@@ -295,9 +321,9 @@ int insert_node_here(size_t height,
         abort();
     }
     size_t s = i > B ? i : B;
-    copy_elements(height, newnode, node, s - B, s, B * 2 - 1 - s);
+    copy_elements(is_branch, newnode, node, s - B, s, B * 2 - 1 - s);
     if (i == B) {
-        if (height) {
+        if (is_branch) {
             branch_children((branch_node *)newnode)[0] = *elem->child;
         }
         *elem_out->key = *elem->key;
@@ -306,16 +332,16 @@ int insert_node_here(size_t height,
         size_t mid = i < B ? B - 1 : B;
         K midkey = leaf_keys(node)[mid];;
         V midvalue = leaf_values(node)[mid];
-        if (height) {
+        if (is_branch) {
             branch_children((branch_node *)newnode)[0] =
                 branch_children((branch_node *)node)[mid + 1];
         }
         if (i < B) {
-            move_elements(height, node, i + 1, i, B - 1 - i);
-            set_element(height, node, i, elem);
+            move_elements(is_branch, node, i + 1, i, B - 1 - i);
+            set_element(is_branch, node, i, elem);
         } else {
-            copy_elements(height, newnode, node, 0, B + 1, i - B - 1);
-            set_element(height, newnode, i - B - 1, elem);
+            copy_elements(is_branch, newnode, node, 0, B + 1, i - B - 1);
+            set_element(is_branch, newnode, i - B - 1, elem);
         }
         *elem_out->key = midkey;
         *elem_out->value = midvalue;
@@ -348,7 +374,6 @@ size_t raw_lookup_node(leaf_node **nodestack,
     return h;
 }
 
-/** Return the node and the position within that node. */
 int insert_node(size_t height,
                 leaf_node *node,
                 const K *key,
@@ -363,32 +388,22 @@ int insert_node(size_t height,
     MALLOCA(size_t, istack, height);
     MALLOCA(leaf_node *, nodestack, height);
     h = raw_lookup_node(nodestack, istack, height, node, key);
-    if (h < height) {
+    if (h != height) {
         leaf_values(nodestack[h])[istack[h]] = *value;
         r = -1;
-        goto done;
-    }
-    /* the rest of it does not depend on the comparison operation, only on the
-       layout of the structure */
-    while (h) {
-        --h;
-        struct element_ref elem = {
-            h != height - 1 ? key_inout : (K *)key,
-            h != height - 1 ? value_inout : (V *)value,
-            child_inout
-        };
-        struct element_ref elem_out = {
-            key_inout,
-            value_inout,
-            child_inout
-        };
-        r = insert_node_here(h != height - 1, nodestack[h], istack[h],
+    } else {
+        /* the rest of it does not depend on the comparison operation, only on
+           the layout of the structure */
+        h = height - 1;
+        struct element_ref elem = {(K *)key, (V *)value, child_inout};
+        struct element_ref elem_out = {key_inout, value_inout, child_inout};
+        r = insert_node_here(0, nodestack[h], istack[h],
                              &elem, &elem_out);
-        if (r >= -1) {
-            goto done;
+        while (h-- && r < -1) {
+            r = insert_node_here(1, nodestack[h], istack[h],
+                                 &elem_out, &elem_out);
         }
     }
-done:
     FREEA(nodestack);
     FREEA(istack);
     return r;
@@ -521,6 +536,7 @@ void test_random_inserts(unsigned seed,
             }
 #endif
             int r = btree_insert(t, &k, &v);
+            (void)r;
             assert(!r);
 #ifndef PROFILE
             if (dump) {
