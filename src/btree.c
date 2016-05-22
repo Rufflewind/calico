@@ -43,6 +43,11 @@ typedef unsigned short child_index_type;
 typedef unsigned char height_type;
 
 typedef struct {
+#ifndef NDEBUG
+    /* when assertions are enabled, track whether it's a branch or leaf to
+       catch bugs more easily */
+    int _is_branch;
+#endif
     /* the number of valid keys (or number of valid values),
        ranging from 0 to 2 * B - 1 */
     child_index_type _len;
@@ -62,6 +67,19 @@ struct elem_ref {
 };
 
 static inline
+leaf_node *alloc_leaf(void)
+{
+    leaf_node *m = (leaf_node *)malloc(sizeof(*m));
+    if (m) {
+#ifndef NDEBUG
+        m->_is_branch = 0;
+#endif
+        m->_len = 0;
+    }
+    return m;
+}
+
+static inline
 child_index_type *leaf_len(leaf_node *m)
 {
     return &m->_len;
@@ -79,7 +97,7 @@ V *leaf_values(leaf_node *m)
     return m->_values;
 }
 
-typedef struct branch_node_ {
+typedef struct {
     /* we use `leaf_node` as a "base type" */
     leaf_node _data;
     /* child nodes, with [0, _data._len] valid */
@@ -87,9 +105,16 @@ typedef struct branch_node_ {
 } branch_node;
 
 static inline
-leaf_node **branch_children(branch_node *m)
+branch_node *alloc_branch(void)
 {
-    return m->_children;
+    branch_node *m = (branch_node *)malloc(sizeof(*m));
+    if (m) {
+#ifndef NDEBUG
+        m->_data._is_branch = 1;
+#endif
+        m->_data._len = 0;
+    }
+    return m;
 }
 
 static inline
@@ -98,10 +123,35 @@ leaf_node *branch_as_leaf(branch_node *m)
     return &m->_data;
 }
 
+static inline
+leaf_node **branch_children(branch_node *m)
+{
+    return m->_children;
+}
+
+static inline
+child_index_type *branch_len(branch_node *m)
+{
+    return leaf_len(branch_as_leaf(m));
+}
+
+static inline
+K *branch_keys(branch_node *m)
+{
+    return leaf_keys(branch_as_leaf(m));
+}
+
+static inline
+V *branch_values(branch_node *m)
+{
+    return leaf_values(branch_as_leaf(m));
+}
+
 /** It must actually be a branch, or this will cause UB. */
 static inline
 branch_node *unsafe_leaf_as_branch(leaf_node *m)
 {
+    assert(m->_is_branch);
     return (branch_node *)m;
 }
 
@@ -116,6 +166,8 @@ leaf_node **unsafe_leaf_children(leaf_node *m)
 static inline
 branch_node *try_leaf_as_branch(int is_branch, leaf_node *m)
 {
+    assert(m);
+    assert(!!is_branch == m->_is_branch);
     if (!is_branch) {
         return NULL;
     }
@@ -190,7 +242,9 @@ void free_node(height_type height, leaf_node *m)
 
 void reset_btree(btree *m)
 {
-    free_node(m->_height - 1, m->_root);
+    if (m->_root) {
+        free_node(m->_height - 1, m->_root);
+    }
     init_btree(m);
 }
 
@@ -233,18 +287,19 @@ height_type raw_lookup_node(leaf_node **nodestack,
     return h;
 }
 
-void btree_lookup(btree_cursor *cur, btree *m, const K *key)
+int btree_lookup(btree_cursor *cur, btree *m, const K *key)
 {
     assert(m->_height <= MAX_HEIGHT);
     if (!m->_height) {
         cur->_depth = 0;
-        return;
+        return 0;
     }
     cur->_depth = raw_lookup_node(cur->_nodestack,
                                   cur->_istack,
                                   m->_height,
                                   m->_root,
                                   key);
+    return cur->_depth != m->_height;
 }
 
 /** Return the node and the position within that node. */
@@ -348,10 +403,10 @@ int insert_node_here(int is_branch,
 
     /* case B: not enough room; need to split node */
     assert(len == 2 * B - 1);
-    leaf_node *newnode = (leaf_node *)malloc(
+    leaf_node *newnode =
         is_branch ?
-        sizeof(branch_node) :
-        sizeof(leaf_node));
+        branch_as_leaf(alloc_branch()) :
+        alloc_leaf();
     if (!newnode) {
         /* FIXME: we should return 1 instead of failing, but we'd need to
            rollback the incomplete insert, which is tricky :c */
@@ -430,7 +485,7 @@ int btree_insert(btree *m, const K *key, const V *value)
     if (!m->_root) {
         assert(m->_len == 0);
         assert(m->_height == 0);
-        m->_root = (leaf_node *)malloc(sizeof(*m->_root));
+        m->_root = alloc_leaf();
         if (!m->_root) {
             return 1;
         }
@@ -458,7 +513,7 @@ int btree_insert(btree *m, const K *key, const V *value)
     if (r >= 0) {
         return r;
     }
-    branch_node *newroot = (branch_node *)malloc(sizeof(*newroot));
+    branch_node *newroot = alloc_branch();
     if (!newroot) {
         /* FIXME: we should return 1 instead of failing, but we'd need
            to rollback the incomplete insert, which is tricky :c */
@@ -468,9 +523,9 @@ int btree_insert(btree *m, const K *key, const V *value)
         abort();
     }
     ++m->_height;
-    *leaf_len(branch_as_leaf(newroot)) = 1;
-    leaf_keys(branch_as_leaf(newroot))[0] = newkey;
-    leaf_values(branch_as_leaf(newroot))[0] = newvalue;
+    *branch_len(newroot) = 1;
+    branch_keys(newroot)[0] = newkey;
+    branch_values(newroot)[0] = newvalue;
     branch_children(newroot)[0] = m->_root;
     // printf("btree_insert: newchild=%p\n", (void *)newchild);
     branch_children(newroot)[1] = newchild;
@@ -478,21 +533,262 @@ int btree_insert(btree *m, const K *key, const V *value)
     return 0;
 }
 
+/* to get the left parent, use index = i - 1;
+   to get the right parent, use index = i */
+static inline
+struct elem_ref parent_elem(int is_branch,
+                            branch_node *parentnode,
+                            child_index_type index)
+{
+    assert(index < *branch_len(parentnode) + 1);
+    leaf_node *right_child = branch_children(parentnode)[index + 1];
+    struct elem_ref r = {
+        branch_keys(parentnode) + index,
+        branch_values(parentnode) + index,
+        is_branch ? unsafe_leaf_children(right_child) : NULL
+    };
+    return r;
+}
+
+static inline
+int steal_left(int is_branch,
+               leaf_node *node,
+               branch_node *parentnode,
+               child_index_type i,
+               child_index_type previ)
+{
+    child_index_type len, leftlen, lensum, dleftlen, newleftlen, newlen;
+    struct elem_ref elems, leftelems, parentelem;
+    leaf_node *leftnode;
+
+    /* make sure previ is a valid index */
+    assert(previ <= *branch_len(parentnode));
+
+    if (!previ) {
+        /* there is no left neighbor */
+        return 0;
+    }
+
+    leftnode = branch_children(parentnode)[previ - 1];
+    leftlen = *leaf_len(leftnode);
+
+    if (leftlen < B) {
+        /* left neighbor doesn't have enough elements to steal */
+        return 0;
+    }
+
+    elems = node_elems(is_branch, node);
+    leftelems = node_elems(is_branch, leftnode);
+    parentelem = parent_elem(is_branch, parentnode, previ - 1);
+    len = *leaf_len(node);
+    lensum = leftlen + len - 1;
+    newlen = lensum / 2;
+    newleftlen = lensum - newlen;
+    dleftlen = leftlen - newleftlen;
+
+    copy_elems(offset_elem(elems, dleftlen + i),
+               offset_elem(elems, i + 1),
+               len - i - 1);
+    copy_elems(offset_elem(elems, dleftlen),
+               elems,
+               i);
+    copy_elems(offset_elem(elems, dleftlen - 1),
+               parentelem,
+               1);
+    copy_elems(elems,
+               offset_elem(leftelems, newleftlen + 1),
+               dleftlen - 1);
+    copy_elems(parentelem,
+               offset_elem(leftelems, newleftlen),
+               1);
+
+    *leaf_len(leftnode) = newleftlen;
+    *leaf_len(node) = newlen;
+
+printf("stealL\n");
+    return 1;
+}
+
+static inline
+int steal_right(int is_branch,
+                leaf_node *node,
+                branch_node *parentnode,
+                child_index_type i,
+                child_index_type previ)
+{
+    child_index_type len, rightlen, lensum, drightlen, newrightlen, newlen;
+    struct elem_ref elems, rightelems, parentelem;
+    leaf_node *rightnode;
+
+    /* make sure previ is a valid index */
+    assert(previ <= *branch_len(parentnode));
+
+    /* this condition can happen if we are at the rightmost child but the left
+       neighbor does not contain enough elements to steal from */
+    if (previ == *branch_len(parentnode)) {
+        /* there is no right neighbor */
+        return 0;
+    }
+
+    rightnode = branch_children(parentnode)[previ + 1];
+    rightlen = *leaf_len(rightnode);
+
+    if (rightlen < B) {
+        /* right neighbor doesn't have enough elements to steal */
+        return 0;
+    }
+
+printf("stealR\n");
+
+    elems = node_elems(is_branch, node);
+    rightelems = node_elems(is_branch, rightnode);
+    parentelem = parent_elem(is_branch, parentnode, previ);
+    len = *leaf_len(node);
+    lensum = rightlen + *leaf_len(node) - 1;
+    newlen = lensum / 2;
+    newrightlen = lensum - newlen;
+    drightlen = rightlen - newrightlen;
+
+    copy_elems(offset_elem(elems, i),
+               offset_elem(elems, i + 1),
+               len - 1 - i);
+    copy_elems(offset_elem(elems, len - 1),
+               parentelem,
+               1);
+    copy_elems(offset_elem(elems, len),
+               rightelems,
+               drightlen - 1);
+    copy_elems(parentelem,
+               offset_elem(rightelems, drightlen - 1),
+               1);
+    copy_elems(rightelems,
+               offset_elem(rightelems, drightlen),
+               newrightlen);
+
+    *leaf_len(rightnode) = newrightlen;
+    *leaf_len(node) = newlen;
+    return 1;
+}
+
+static inline
+int merge_left(int is_branch,
+               leaf_node *node,
+               branch_node *parentnode,
+               child_index_type i,
+               child_index_type previ,
+               child_index_type *oldindex)
+{
+    child_index_type leftlen, len;
+    struct elem_ref elems, leftelems, parentelem;
+    leaf_node *leftnode;
+
+    /* make sure previ is a valid index */
+    assert(previ <= *branch_len(parentnode));
+
+    if (!previ) {
+        /* there is no left neighbor */
+        return 0;
+    }
+
+printf("mergeL\n");
+
+    leftnode = branch_children(parentnode)[previ - 1];
+    leftlen = *leaf_len(leftnode);
+
+    /* left neighbor must not have too many elements */
+    assert(leftlen == B - 1);
+
+    len = *leaf_len(node);
+    elems = node_elems(is_branch, node);
+    leftelems = node_elems(is_branch, leftnode);
+    parentelem = parent_elem(is_branch, parentnode, previ - 1);
+
+    copy_elems(offset_elem(leftelems, leftlen),
+               parentelem,
+               1);
+    copy_elems(offset_elem(leftelems, leftlen + 1),
+               elems,
+               i);
+    copy_elems(offset_elem(leftelems, leftlen + 1 + i),
+               offset_elem(elems, i + 1),
+               len - i - 1);
+
+    free(node);
+    *leaf_len(leftnode) = leftlen + len;
+    *oldindex = previ - 1;
+    return 1;
+}
+
+static inline
+int merge_right(int is_branch,
+               leaf_node *node,
+               branch_node *parentnode,
+               child_index_type i,
+               child_index_type previ,
+               child_index_type *oldindex)
+{
+    child_index_type rightlen, len;
+    struct elem_ref elems, rightelems, parentelem;
+    leaf_node *rightnode;
+
+printf("mergeR\n");
+
+    /* make sure previ is a valid index */
+    assert(previ <= *branch_len(parentnode));
+
+    /* make sure there is a right neighbor */
+    assert(previ != *branch_len(parentnode));
+
+    rightnode = branch_children(parentnode)[previ + 1];
+    rightlen = *leaf_len(rightnode);
+
+    /* right neighbor must not have too many elements */
+    assert(rightlen == B - 1);
+
+    len = *leaf_len(node);
+    elems = node_elems(is_branch, node);
+    rightelems = node_elems(is_branch, rightnode);
+    parentelem = parent_elem(is_branch, parentnode, previ);
+
+    copy_elems(offset_elem(elems, i),
+               offset_elem(elems, i + 1),
+               len - i - 1);
+    copy_elems(offset_elem(elems, len - 1),
+               parentelem,
+               1);
+    copy_elems(offset_elem(elems, len),
+               rightelems,
+               rightlen);
+
+    free(rightnode);
+    *leaf_len(node) = len + rightlen;
+    *oldindex = previ;
+    return 1;
+}
+
 void delete_at_cursor(btree *m, btree_cursor *cur)
 {
     height_type depth = cur->_depth;
     height_type height = m->_height;
-    /* disallow iterators that don't point to an exact element */
+
+    /* a valid cursor cannot belong to a tree of zero height (no elements) */
+    assert(height);
+
+    /* iterator must point to an exact match (as opposite to an "in-between"
+       match, which is useful only for inserting elements) */
     assert(depth < height);
 
-    /* if node is not leaf, swap with the nearest leaf to the left */
+    --m->_len;
+
+    /* if node is not leaf, swap with the nearest leaf to the left and fill
+       the cursor stacks completely throughout [0, height) */
     if (depth < height - 1) {
         height_type h = depth;
         leaf_node *uppernode = cur->_nodestack[depth];
         child_index_type upperi = cur->_istack[depth];
         K *key = &leaf_keys(uppernode)[upperi];
         leaf_node *node = uppernode;
-        size_t i = upperi;
+        child_index_type i = upperi;
         ++h;
         do {
             node = branch_children(unsafe_leaf_as_branch(node))[i];
@@ -507,7 +803,51 @@ void delete_at_cursor(btree *m, btree_cursor *cur)
         *key = leaf_keys(lowernode)[loweri];
         leaf_values(uppernode)[upperi] = leaf_values(lowernode)[loweri];
     }
-// TODO
+
+    depth = height - 1; // FIXME: hack
+
+    child_index_type i = cur->_istack[depth];
+    leaf_node *node = cur->_nodestack[depth];
+    while (1) {
+        child_index_type len = *leaf_len(node);
+        int is_branch = depth != height - 1;
+        printf("node:%p i:%i\n", (void*)node, i);
+
+        /* easy case: no underflow (or is root node) */
+        if (len >= B || !depth) {
+            struct elem_ref elem = node_elems(is_branch, node);
+            copy_elems(offset_elem(elem, i),
+                       offset_elem(elem, i + 1),
+                       len - i - 1);
+            *leaf_len(node) = len - 1;
+            if (!depth && len == 1) {
+                /* root node will become empty */
+                if (is_branch) {
+                    m->_root = unsafe_leaf_children(node)[0];
+                    free(node);
+                    --m->_height;
+                } else {
+                    /* we are OK with an empty leaf root node */
+                    --*leaf_len(node);
+                }
+            }
+            return;
+        }
+
+        branch_node *parentnode =
+            unsafe_leaf_as_branch(cur->_nodestack[depth - 1]);
+        child_index_type previ = cur->_istack[depth - 1];
+
+        if (steal_left(is_branch, node, parentnode, i, previ) ||
+            steal_right(is_branch, node, parentnode, i, previ))
+            break;
+
+        merge_left(is_branch, node, parentnode, i, previ, &i) ||
+        merge_right(is_branch, node, parentnode, i, previ, &i);
+
+        --depth;
+        node = branch_as_leaf(parentnode);
+    }
 }
 
 #define INDENT 2

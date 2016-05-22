@@ -16,7 +16,7 @@ int binary_search(const void *key,
     size_t i = 0;
     while (count) {
         size_t m = count / 2;
-        char j = i + m;
+        size_t j = i + m;
         int r = (*cmp)(cmp_ctx, key, (const char *)ptr + j * size);
         if (!r) {
             if (pos_out) {
