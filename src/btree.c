@@ -55,7 +55,7 @@ typedef struct {
 } leaf_node;
 
 /** A simple container used for readability purposes */
-struct element_ref {
+struct elem_ref {
     K *key;
     V *value;
     leaf_node **child; /* right child */
@@ -105,6 +105,13 @@ branch_node *unsafe_leaf_as_branch(leaf_node *m)
     return (branch_node *)m;
 }
 
+/** It must actually be a branch, or this will cause UB. */
+static inline
+leaf_node **unsafe_leaf_children(leaf_node *m)
+{
+    return branch_children(unsafe_leaf_as_branch(m));
+}
+
 /** May return NULL if it's not a branch. */
 static inline
 branch_node *try_leaf_as_branch(int is_branch, leaf_node *m)
@@ -113,6 +120,18 @@ branch_node *try_leaf_as_branch(int is_branch, leaf_node *m)
         return NULL;
     }
     return unsafe_leaf_as_branch(m);
+}
+
+static inline
+struct elem_ref node_elems(int is_branch, leaf_node *m)
+{
+    struct elem_ref r = {
+        leaf_keys(m),
+        leaf_values(m),
+        /* we always manipulate the key+value with its RIGHT child */
+        is_branch ? unsafe_leaf_children(m) + 1 : NULL
+    };
+    return r;
 }
 
 typedef struct {
@@ -284,84 +303,45 @@ int btree_in(const btree *m, const K *k)
 }
 
 static inline
-void copy_elements(int is_branch,
-                   leaf_node *restrict dstnode,
-                   leaf_node *restrict srcnode,
-                   size_t dstindex,
-                   size_t srcindex,
-                   size_t count)
+void copy_elems(struct elem_ref dst,
+                struct elem_ref src,
+                size_t count)
 {
-    K *dks = leaf_keys(dstnode);
-    K *sks = leaf_keys(srcnode);
-    V *dvs = leaf_values(dstnode);
-    V *svs = leaf_values(srcnode);
-    memcpy(dks + dstindex, sks + srcindex, count * sizeof(*sks));
-    memcpy(dvs + dstindex, svs + srcindex, count * sizeof(*svs));
-    /* note that the we copy the RIGHT child, hence the "+ 1" */
-    if (is_branch) {
-        leaf_node **dcs = branch_children(unsafe_leaf_as_branch(dstnode)) + 1;
-        leaf_node **scs = branch_children(unsafe_leaf_as_branch(srcnode)) + 1;
-        memcpy(dcs + dstindex, scs + srcindex, count * sizeof(*scs));
+    /* use memmove due to potential for overlap; it's not always needed, but
+       better safe than sorry and the performance impact here is minimal */
+    memmove(dst.key, src.key, count * sizeof(*src.key));
+    memmove(dst.value, src.value, count * sizeof(*src.value));
+    assert(!!dst.child == !!src.child);
+    if (src.child) {
+        memmove(dst.child, src.child, count * sizeof(*src.child));
     }
 }
 
 static inline
-void move_elements(int is_branch,
-                   leaf_node *node,
-                   size_t dstindex,
-                   size_t srcindex,
-                   size_t count)
+struct elem_ref offset_elem(struct elem_ref dst, size_t count)
 {
-    K *ks = leaf_keys(node);
-    V *vs = leaf_values(node);
-    memmove(ks + dstindex, ks + srcindex, count * sizeof(*ks));
-    memmove(vs + dstindex, vs + srcindex, count * sizeof(*vs));
-    /* note that the we move the RIGHT child, hence the "+ 1" */
-    if (is_branch) {
-        leaf_node **cs = branch_children(unsafe_leaf_as_branch(node)) + 1;
-        memmove(cs + dstindex, cs + srcindex, count * sizeof(*cs));
-    }
+    struct elem_ref r = {
+        dst.key + count,
+        dst.value + count,
+        dst.child ? dst.child + count : NULL
+    };
+    return r;
 }
 
 static inline
-void set_element(int is_branch,
-                 leaf_node *node,
-                 child_index_type index,
-                 const struct element_ref *elem)
-{
-    leaf_keys(node)[index] = *elem->key;
-    leaf_values(node)[index] = *elem->value;
-    if (is_branch) {
-        branch_children(unsafe_leaf_as_branch(node))[index + 1] = *elem->child;
-    }
-}
-
-static inline
-void move_element(struct element_ref *dstelem,
-                  const struct element_ref *srcelem)
-{
-    assert(!!dstelem->child == !!srcelem->child);
-    *dstelem->key = *srcelem->key;
-    *dstelem->value = *srcelem->value;
-    if (srcelem->child) {
-        *dstelem->child = *srcelem->child;
-    }
-}
-
 int insert_node_here(int is_branch,
                      leaf_node *node,
                      child_index_type i,
-                     /* the `const` here is just placebo, but still: don't try
-                        to modify the values that its members point to*/
-                     const struct element_ref *elem,
-                     struct element_ref *elem_out)
+                     struct elem_ref elem,
+                     struct elem_ref elem_out)
 {
     child_index_type len = *leaf_len(node);
 
     /* case A: enough room to do a simple insert */
+    struct elem_ref elems = node_elems(is_branch, node);
     if (len < 2 * B - 1) {
-        move_elements(is_branch, node, i + 1, i, len - i);
-        set_element(is_branch, node, i, elem);
+        copy_elems(offset_elem(elems, i + 1), offset_elem(elems, i), len - i);
+        copy_elems(offset_elem(elems, i), elem, 1);
         ++*leaf_len(node);
         return 0;
     }
@@ -380,45 +360,47 @@ int insert_node_here(int is_branch,
         fflush(stderr);
         abort();
     }
+    struct elem_ref newelems = node_elems(is_branch, newnode);
     size_t s = i > B ? i : B;
-    copy_elements(is_branch, newnode, node, s - B, s, B * 2 - 1 - s);
+    copy_elems(offset_elem(newelems, s - B), offset_elem(elems, s),
+               B * 2 - 1 - s);
     if (i == B) {
         if (is_branch) {
-            branch_children((branch_node *)newnode)[0] = *elem->child;
+            unsafe_leaf_children(newnode)[0] = *elem.child;
         }
-        *elem_out->key = *elem->key;
-        *elem_out->value = *elem->value;
+        *elem_out.key = *elem.key;
+        *elem_out.value = *elem.value;
     } else {
         child_index_type mid = i < B ? B - 1 : B;
         K midkey = leaf_keys(node)[mid];;
         V midvalue = leaf_values(node)[mid];
         if (is_branch) {
-            branch_children((branch_node *)newnode)[0] =
-                branch_children((branch_node *)node)[mid + 1];
+            unsafe_leaf_children(newnode)[0] =
+                unsafe_leaf_children(node)[mid + 1];
         }
         if (i < B) {
-            move_elements(is_branch, node, i + 1, i, B - 1 - i);
-            set_element(is_branch, node, i, elem);
+            copy_elems(offset_elem(elems, i + 1), offset_elem(elems, i),
+                       B - 1 - i);
+            copy_elems(offset_elem(elems, i), elem, 1);
         } else {
-            copy_elements(is_branch, newnode, node, 0, B + 1, i - B - 1);
-            set_element(is_branch, newnode, i - B - 1, elem);
+            copy_elems(newelems, offset_elem(elems, B + 1), i - B - 1);
+            copy_elems(offset_elem(newelems, i - B - 1), elem, 1);
         }
-        *elem_out->key = midkey;
-        *elem_out->value = midvalue;
+        *elem_out.key = midkey;
+        *elem_out.value = midvalue;
     }
     *leaf_len(node) = B;
     *leaf_len(newnode) = B - 1;
-    *elem_out->child = newnode;
+    *elem_out.child = newnode;
     return -2;
 }
 
+static inline
 int insert_node(height_type height,
                 leaf_node *node,
                 const K *key,
                 const V *value,
-                K *key_inout,
-                V *value_inout,
-                leaf_node **child_inout)
+                struct elem_ref newelem)
 {
     int r;
     height_type h = 0;
@@ -432,13 +414,10 @@ int insert_node(height_type height,
         /* the rest of it does not depend on the comparison operation, only on
            the layout of the structure */
         h = height - 1;
-        struct element_ref elem = {(K *)key, (V *)value, child_inout};
-        struct element_ref elem_out = {key_inout, value_inout, child_inout};
-        r = insert_node_here(0, nodestack[h], istack[h],
-                             &elem, &elem_out);
+        struct elem_ref elem = {(K *)key, (V *)value, NULL};
+        r = insert_node_here(0, nodestack[h], istack[h], elem, newelem);
         while (h-- && r < -1) {
-            r = insert_node_here(1, nodestack[h], istack[h],
-                                 &elem_out, &elem_out);
+            r = insert_node_here(1, nodestack[h], istack[h], newelem, newelem);
         }
     }
     FREEA(nodestack);
@@ -465,13 +444,12 @@ int btree_insert(btree *m, const K *key, const V *value)
     K newkey;
     V newvalue;
     leaf_node *newchild;
+    struct elem_ref newelem = {&newkey, &newvalue, &newchild};
     int r = insert_node(m->_height,
                         m->_root,
                         key,
                         value,
-                        &newkey,
-                        &newvalue,
-                        &newchild);
+                        newelem);
     if (r == 0) {                       /* added a new element */
         ++m->_len;
     } else if (r == -1) {               /* updated an existing element */
