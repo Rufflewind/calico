@@ -5,7 +5,7 @@ import numpy as np
 def parse_kvs(s):
     d = {}
     for line in s.split("\n"):
-        if not line:
+        if "=" not in line:
             continue
         k, v = line.split("=", 1)
         d[k] = v
