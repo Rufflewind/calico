@@ -248,7 +248,7 @@ void reset_btree(btree *m)
     init_btree(m);
 }
 
-child_index_type btree_len(const btree *m)
+size_t btree_len(const btree *m)
 {
     return m->_len;
 }
@@ -489,7 +489,7 @@ int btree_insert(btree *m, const K *key, const V *value)
         if (!m->_root) {
             return 1;
         }
-        ++m->_len; // uhhh wait what if the insert was a dupe
+        ++m->_len;
         m->_height = 1;
         *leaf_len(m->_root) = 1;
         leaf_keys(m->_root)[0] = *key;
@@ -505,10 +505,10 @@ int btree_insert(btree *m, const K *key, const V *value)
                         key,
                         value,
                         newelem);
-    if (r == 0) {                       /* added a new element */
-        ++m->_len;
-    } else if (r == -1) {               /* updated an existing element */
+    if (r == -1) {                      /* updated an existing element */
         r = 0;
+    } else {                            /* added a new element */
+        ++m->_len;
     }
     if (r >= 0) {
         return r;
@@ -527,7 +527,6 @@ int btree_insert(btree *m, const K *key, const V *value)
     branch_keys(newroot)[0] = newkey;
     branch_values(newroot)[0] = newvalue;
     branch_children(newroot)[0] = m->_root;
-    // printf("btree_insert: newchild=%p\n", (void *)newchild);
     branch_children(newroot)[1] = newchild;
     m->_root = branch_as_leaf(newroot);
     return 0;
@@ -605,7 +604,6 @@ int steal_left(int is_branch,
     *leaf_len(leftnode) = newleftlen;
     *leaf_len(node) = newlen;
 
-printf("stealL\n");
     return 1;
 }
 
@@ -637,8 +635,6 @@ int steal_right(int is_branch,
         /* right neighbor doesn't have enough elements to steal */
         return 0;
     }
-
-printf("stealR\n");
 
     elems = node_elems(is_branch, node);
     rightelems = node_elems(is_branch, rightnode);
@@ -690,8 +686,6 @@ int merge_left(int is_branch,
         return 0;
     }
 
-printf("mergeL\n");
-
     leftnode = branch_children(parentnode)[previ - 1];
     leftlen = *leaf_len(leftnode);
 
@@ -730,8 +724,6 @@ int merge_right(int is_branch,
     child_index_type rightlen, len;
     struct elem_ref elems, rightelems, parentelem;
     leaf_node *rightnode;
-
-printf("mergeR\n");
 
     /* make sure previ is a valid index */
     assert(previ <= *branch_len(parentnode));
@@ -811,7 +803,6 @@ void delete_at_cursor(btree *m, btree_cursor *cur)
     while (1) {
         child_index_type len = *leaf_len(node);
         int is_branch = depth != height - 1;
-        printf("node:%p i:%i\n", (void*)node, i);
 
         /* easy case: no underflow (or is root node) */
         if (len >= B || !depth) {
@@ -820,16 +811,11 @@ void delete_at_cursor(btree *m, btree_cursor *cur)
                        offset_elem(elem, i + 1),
                        len - i - 1);
             *leaf_len(node) = len - 1;
-            if (!depth && len == 1) {
-                /* root node will become empty */
-                if (is_branch) {
-                    m->_root = unsafe_leaf_children(node)[0];
-                    free(node);
-                    --m->_height;
-                } else {
-                    /* we are OK with an empty leaf root node */
-                    --*leaf_len(node);
-                }
+            if (!depth && len == 1 && is_branch) {
+                /* root node is a branch and is about to become empty */
+                m->_root = unsafe_leaf_children(node)[0];
+                free(node);
+                --m->_height;
             }
             return;
         }

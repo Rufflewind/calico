@@ -91,29 +91,24 @@ void test_random_inserts(btree *t,
 #endif
         }
     }
-    snprintf(name, sizeof(name), "random_lookups_%u_%u", range, count);
+    snprintf(name, sizeof(name), "random_deletes_%u_%u", range, count);
     unsigned ri = 0;
     TIME(name) {
         while (btree_len(t)) {
             size_t k = (unsigned)rand() % range;
-#ifdef BASE
-            dummy(&k);
-#else
             btree_cursor cur;
 #ifndef PROFILE
 //            dump_btree(t);
-            printf("delete(%zu)\n", k);
+//            printf("delete(%zu), len:%zu\n", k, btree_len(t));
 #endif
             if (btree_lookup(&cur, t, &k)) {
                 delete_at_cursor(t, &cur);
             }
-#endif
             ++ri;
         }
     }
-#ifndef PROFILE
-    dump_btree(t);
-#endif
+    printf("count_random_deletes_%u_%u=%u\n", range, count, ri);
+    // dump_btree(t);
 }
 
 int main(void)
@@ -124,13 +119,12 @@ int main(void)
     init_btree(t);
     reset_btree(t);
 
-#define ITERATOR_HEIGHT (UINTPTR_MAX / sizeof(leaf_node))
-
     printf("sizeof_leaf_node=%zu\n", sizeof(leaf_node));
     printf("max_height=%zu\n", MAX_HEIGHT);
+    printf("sizeof_btree_cursor=%zu\n", sizeof(btree_cursor));
 
     reset_btree(t);
-    test_random_inserts(t, 25, 90, 90, 0);
+    test_random_inserts(t, 25, 90, 20, 0);
     reset_btree(t);
     test_random_inserts(t, 80, 10000, 10000, 0);
     reset_btree(t);
@@ -140,31 +134,7 @@ int main(void)
     reset_btree(t);
     test_random_inserts(t, 105, 100, 300, 0);
     reset_btree(t);
-
     test_random_inserts(t, 1, 40, 40, 0);
-    // btree_cursor cur;
-    // K k;
-
-    // k = 17;
-    // btree_lookup(&cur, t, &k);
-    // delete_at_cursor(t, &cur);
-
-    // k = 21;
-    // btree_lookup(&cur, t, &k);
-    // delete_at_cursor(t, &cur);
-
-    // k = 23;
-    // btree_lookup(&cur, t, &k);
-    // delete_at_cursor(t, &cur);
-
-    // dump_btree(t);
-
-    // k = 24;
-    // btree_lookup(&cur, t, &k);
-    // delete_at_cursor(t, &cur);
-
-    // dump_btree(t);
-
     reset_btree(t);
     return 0;
 }
