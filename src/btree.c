@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <stdio.h> /* for printing error messages */
 #include <string.h>
-#include "malloca.h"
 
 static inline
 int generic_compare(void *ctx, const void *x, const void *y)
@@ -451,31 +450,30 @@ int insert_node(height_type height,
                 struct elem_ref newelem)
 {
     int r;
-    height_type h = 0;
-    MALLOCA(child_index_type, istack, height);
-    MALLOCA(leaf_node *, nodestack, height);
-    // btree_cursor cur;
-    // if (btree_lookup(&cur, m, key)) {
-    //     height_type depth = cur->_depth;
-    //     leaf_values(cur->_nodestack[depth])[cur->_istack[depth]] = *value;
-    //     r = -1;
-    // }
-    h = raw_lookup_node(nodestack, istack, height, node, key);
+    height_type h;
+    btree_cursor cur;
+    h = raw_lookup_node(cur._nodestack, cur._istack, height, node, key);
     if (h != height) {
-        leaf_values(nodestack[h])[istack[h]] = *value;
+        leaf_values(cur._nodestack[h])[cur._istack[h]] = *value;
         r = -1;
     } else {
         /* the rest of it does not depend on the comparison operation, only on
            the layout of the structure */
         h = height - 1;
         struct elem_ref elem = {(K *)key, (V *)value, NULL};
-        r = insert_node_here(0, nodestack[h], istack[h], elem, newelem);
+        r = insert_node_here(0,
+                             cur._nodestack[h],
+                             cur._istack[h],
+                             elem,
+                             newelem);
         while (h-- && r < -1) {
-            r = insert_node_here(1, nodestack[h], istack[h], newelem, newelem);
+            r = insert_node_here(1,
+                                 cur._nodestack[h],
+                                 cur._istack[h],
+                                 newelem,
+                                 newelem);
         }
     }
-    FREEA(nodestack);
-    FREEA(istack);
     return r;
 }
 
