@@ -4,21 +4,16 @@
 #endif
 #define K size_t
 #define V double
-#ifndef LOOKUP_METHOD
-#define LOOKUP_METHOD linear_sorted_search_K_V
+#ifndef SearchFunction
+#define SearchFunction linear_sorted_search
 #endif
+#include "linear_sorted_search.c"
+#include "binary_search.c"
 static inline
-int compare_K(const K *x, const K *y)
+int Compare(const K *x, const K *y)
 {
     return (*x > *y) - (*x < *y);
 }
-static inline
-int generic_compare_K(void *ctx, const void *x, const void *y)
-{
-    (void)ctx;
-    return compare_K((const K *)x, (const K *)y);
-}
-
 #include "btree.c"
 
 #include "wclock.h"
@@ -96,14 +91,11 @@ void test_random_inserts(btree *t,
     TIME(name) {
         while (btree_len(t)) {
             size_t k = (unsigned)rand() % range;
-            btree_cursor cur;
 #ifndef PROFILE
-//            dump_btree(t);
+           // dump_btree(t);
 //            printf("delete(%zu), len:%zu\n", k, btree_len(t));
 #endif
-            if (btree_lookup(&cur, t, &k)) {
-                delete_at_cursor(t, &cur);
-            }
+            btree_delete(t, &k);
             ++ri;
         }
     }
@@ -120,7 +112,7 @@ int main(void)
     reset_btree(t);
 
     printf("sizeof_leaf_node=%zu\n", sizeof(leaf_node));
-    printf("max_height=%zu\n", MAX_HEIGHT);
+    printf("max_height=%zu\n", (size_t)MAX_HEIGHT);
     printf("sizeof_btree_cursor=%zu\n", sizeof(btree_cursor));
 
     reset_btree(t);
