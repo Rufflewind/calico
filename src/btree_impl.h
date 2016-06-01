@@ -1,41 +1,33 @@
-/*@public=btree(_.*)*/
-#include <assert.h>
-#include <limits.h> /* for CHAR_BIT */
-#include <stdlib.h>
-#include <stdio.h> /* for printing error messages */
-#include <string.h>
-
 static inline
 int generic_compare(void *ctx, const void *x, const void *y)
 {
     (void)ctx;
-    return Compare((const K *)x, (const K *)y);
+    return CompareFunction((const K *)x, (const K *)y);
 }
 
-typedef unsigned short child_index_type;
-typedef unsigned char height_type;
-
 typedef struct {
-#ifndef NDEBUG
+cal_cond_ndebug(,
     /* when assertions are enabled, track whether it's a branch or leaf to
        catch bugs more easily */
     int _is_branch;
-#endif
+)
     /* the number of valid keys (or number of valid values),
        ranging from 0 to 2 * B - 1 */
-    child_index_type _len;
+    ChildIndexType _len;
     /* an array of keys, with [0, _len) valid */
     K _keys[2 * B - 1];
-#ifdef V
+cal_cond(HasValue)(
     /* an array of values, with [0, _len) valid */
     V _values[2 * B - 1];
-#endif
+,)
 } leaf_node;
 
 /** A simple container used for readability purposes */
 struct elem_ref {
     K *key;
+cal_cond(HasValue)(
     V *value;
+,)
     leaf_node **child; /* right child */
 };
 
@@ -44,16 +36,14 @@ leaf_node *alloc_leaf(void)
 {
     leaf_node *m = (leaf_node *)malloc(sizeof(*m));
     if (m) {
-#ifndef NDEBUG
-        m->_is_branch = 0;
-#endif
+        assert(!(m->_is_branch = 0));
         m->_len = 0;
     }
     return m;
 }
 
 static inline
-child_index_type *leaf_len(leaf_node *m)
+ChildIndexType *leaf_len(leaf_node *m)
 {
     return &m->_len;
 }
@@ -67,7 +57,7 @@ K *leaf_keys(leaf_node *m)
 static inline
 V *leaf_values(leaf_node *m)
 {
-    return m->_values;
+    return HasValue ? m->_values : NULL;
 }
 
 typedef struct {
@@ -82,9 +72,7 @@ branch_node *alloc_branch(void)
 {
     branch_node *m = (branch_node *)malloc(sizeof(*m));
     if (m) {
-#ifndef NDEBUG
-        m->_data._is_branch = 1;
-#endif
+        assert(m->_data._is_branch = 1);
         m->_data._len = 0;
     }
     return m;
@@ -103,7 +91,7 @@ leaf_node **branch_children(branch_node *m)
 }
 
 static inline
-child_index_type *branch_len(branch_node *m)
+ChildIndexType *branch_len(branch_node *m)
 {
     return leaf_len(branch_as_leaf(m));
 }
@@ -117,7 +105,7 @@ K *branch_keys(branch_node *m)
 static inline
 V *branch_values(branch_node *m)
 {
-    return leaf_values(branch_as_leaf(m));
+    return HasValue ? leaf_values(branch_as_leaf(m)) : NULL;
 }
 
 /** It must actually be a branch, or this will cause UB. */
@@ -161,43 +149,28 @@ struct elem_ref node_elems(int is_branch, leaf_node *m)
 
 typedef struct {
     leaf_node *_root;
-    child_index_type _len;
-    height_type _height;
+    ChildIndexType _len;
+    HeightType _height;
 } btree;
 
-/* Obtain a lower bound on the logarithm of a number */
-#ifndef MINLOG2
-#define MINLOG2(x)                              \
-    ((x) >= 256 ? 8 :                           \
-     (x) >= 128 ? 7 :                           \
-     (x) >= 64 ? 6 :                            \
-     (x) >= 32 ? 5 :                            \
-     (x) >= 16 ? 4 :                            \
-     (x) >= 8 ? 3 :                             \
-     (x) >= 4 ? 2 :                             \
-     (x) >= 2 ? 1 :                             \
-     0)
-#endif
 /* log2(UINTPTR_MAX / sizeof(leaf_node)) / log2(B) + 1 */
 enum {
     MAX_HEIGHT =
-        (CHAR_BIT * sizeof(void *) - MINLOG2(sizeof(leaf_node)))
-        / MINLOG2(B) + 1
+        (CHAR_BIT * sizeof(void *) - cal_minlog2(sizeof(leaf_node)))
+        / cal_minlog2(B) + 1
 };
 
-#include "compat/static_assert_begin.h"
-static_assert((height_type)MAX_HEIGHT == MAX_HEIGHT, "height is too big");
-static_assert((child_index_type)B == B, "B is too big");
-#include "compat/static_assert_end.h"
+static_assert((HeightType)MAX_HEIGHT == MAX_HEIGHT, "height is too big");
+static_assert((ChildIndexType)B == B, "B is too big");
 
 typedef struct {
     leaf_node *_nodestack[MAX_HEIGHT];
-    child_index_type _istack[MAX_HEIGHT];
-    height_type _depth;
+    ChildIndexType _istack[MAX_HEIGHT];
+    HeightType _depth;
 } btree_cursor;
 
 static inline
-void init_btree(btree *m)
+void btree_init(btree *m)
 {
     m->_len = 0;
     m->_height = 0;
@@ -205,25 +178,24 @@ void init_btree(btree *m)
 }
 
 static inline
-void free_node(height_type height, leaf_node *m)
+void free_node(HeightType height, leaf_node *m)
 {
     branch_node *mb = try_leaf_as_branch(height, m);
     if (mb) {
-        for (child_index_type i = 0; i < *leaf_len(m) + 1; ++i) {
+        for (ChildIndexType i = 0; i < *leaf_len(m) + 1; ++i) {
             free_node(height - 1, branch_children(mb)[i]);
         }
     }
-    // printf("free(%p)\n", (void *)m);
     free(m);
 }
 
 static inline
-void reset_btree(btree *m)
+void btree_reset(btree *m)
 {
     if (m->_root) {
         free_node(m->_height - 1, m->_root);
     }
-    init_btree(m);
+    btree_init(m);
 }
 
 static inline
@@ -233,10 +205,10 @@ size_t btree_len(const btree *m)
 }
 
 static inline
-leaf_node *lookup_iter(child_index_type *i_out,
+leaf_node *lookup_iter(ChildIndexType *i_out,
                        leaf_node *node,
-                       height_type *h,
-                       height_type height,
+                       HeightType *h,
+                       HeightType height,
                        const K *key)
 {
     size_t i;
@@ -249,7 +221,7 @@ leaf_node *lookup_iter(child_index_type *i_out,
                        &generic_compare,
                        NULL,
                        &i);
-    *i_out = (child_index_type)i;
+    *i_out = (ChildIndexType)i;
     if (r || ++*h >= height) {
         return NULL;
     }
@@ -258,13 +230,13 @@ leaf_node *lookup_iter(child_index_type *i_out,
 
 /** Return the node and the position within that node. */
 static inline
-height_type raw_lookup_node(leaf_node **nodestack,
-                            child_index_type *istack,
-                            height_type height,
+HeightType raw_lookup_node(leaf_node **nodestack,
+                            ChildIndexType *istack,
+                            HeightType height,
                             leaf_node *node,
                             const K *key)
 {
-    height_type h = 0;
+    HeightType h = 0;
     assert(height);
     nodestack[0] = node;
     while ((node = lookup_iter(&istack[h], nodestack[h], &h, height, key))) {
@@ -291,13 +263,13 @@ int btree_lookup(btree_cursor *cur, btree *m, const K *key)
 
 /** Return the node and the position within that node. */
 static inline
-leaf_node *find_node(height_type height,
+leaf_node *find_node(HeightType height,
                      leaf_node *node,
                      const K *key,
-                     child_index_type *index)
+                     ChildIndexType *index)
 {
-    child_index_type i;
-    height_type h = 0;
+    ChildIndexType i;
+    HeightType h = 0;
     leaf_node *newnode;
     while ((newnode = lookup_iter(&i, node, &h, height, key))) {
         node = newnode;
@@ -311,7 +283,7 @@ leaf_node *find_node(height_type height,
 
 /** Return the node and the position within that node. */
 static inline
-leaf_node *btree_get_node(btree *m, const K *key, child_index_type *index)
+leaf_node *btree_get_node(btree *m, const K *key, ChildIndexType *index)
 {
     if (!m->_root) {
         assert(m->_height == 0);
@@ -321,17 +293,19 @@ leaf_node *btree_get_node(btree *m, const K *key, child_index_type *index)
     return find_node(m->_height, m->_root, key, index);
 }
 
-#ifdef V
-
 static inline
 V *btree_get(btree *m, const K *k)
 {
-    child_index_type i;
-    leaf_node *n = btree_get_node(m, k, &i);
+    ChildIndexType i;
+    leaf_node *n;
+    if (!HasValue) {
+        return NULL;
+    }
+    n = btree_get_node(m, k, &i);
     if (!n) {
         return NULL;
     }
-    return &leaf_values(n)[i];
+    return leaf_values(n) + i;
 }
 
 static inline
@@ -340,12 +314,10 @@ const V *btree_get_const(const btree *m, const K *k)
     return btree_get((btree *)m, k);
 }
 
-#endif
-
 static inline
 int btree_in(const btree *m, const K *k)
 {
-    child_index_type i;
+    ChildIndexType i;
     return !!btree_get_node((btree *)m, k, &i);
 }
 
@@ -378,11 +350,11 @@ struct elem_ref offset_elem(struct elem_ref dst, size_t count)
 static inline
 int insert_node_here(int is_branch,
                      leaf_node *node,
-                     child_index_type i,
+                     ChildIndexType i,
                      struct elem_ref elem,
                      struct elem_ref elem_out)
 {
-    child_index_type len = *leaf_len(node);
+    ChildIndexType len = *leaf_len(node);
 
     /* case A: enough room to do a simple insert */
     struct elem_ref elems = node_elems(is_branch, node);
@@ -418,7 +390,7 @@ int insert_node_here(int is_branch,
         *elem_out.key = *elem.key;
         *elem_out.value = *elem.value;
     } else {
-        child_index_type mid = i < B ? B - 1 : B;
+        ChildIndexType mid = i < B ? B - 1 : B;
         K midkey = leaf_keys(node)[mid];;
         V midvalue = leaf_values(node)[mid];
         if (is_branch) {
@@ -443,14 +415,14 @@ int insert_node_here(int is_branch,
 }
 
 static inline
-int insert_node(height_type height,
+int insert_node(HeightType height,
                 leaf_node *node,
                 const K *key,
                 const V *value,
                 struct elem_ref newelem)
 {
     int r;
-    height_type h;
+    HeightType h;
     btree_cursor cur;
     h = raw_lookup_node(cur._nodestack, cur._istack, height, node, key);
     if (h != height) {
@@ -535,7 +507,7 @@ int btree_insert(btree *m, const K *key, const V *value)
 static inline
 struct elem_ref parent_elem(int is_branch,
                             branch_node *parentnode,
-                            child_index_type index)
+                            ChildIndexType index)
 {
     assert(index < *branch_len(parentnode) + 1);
     leaf_node *right_child = branch_children(parentnode)[index + 1];
@@ -551,10 +523,10 @@ static inline
 int steal_left(int is_branch,
                leaf_node *node,
                branch_node *parentnode,
-               child_index_type i,
-               child_index_type previ)
+               ChildIndexType i,
+               ChildIndexType previ)
 {
-    child_index_type len, leftlen, lensum, dleftlen, newleftlen, newlen;
+    ChildIndexType len, leftlen, lensum, dleftlen, newleftlen, newlen;
     struct elem_ref elems, leftelems, parentelem;
     leaf_node *leftnode;
 
@@ -609,10 +581,10 @@ static inline
 int steal_right(int is_branch,
                 leaf_node *node,
                 branch_node *parentnode,
-                child_index_type i,
-                child_index_type previ)
+                ChildIndexType i,
+                ChildIndexType previ)
 {
-    child_index_type len, rightlen, lensum, drightlen, newrightlen, newlen;
+    ChildIndexType len, rightlen, lensum, drightlen, newrightlen, newlen;
     struct elem_ref elems, rightelems, parentelem;
     leaf_node *rightnode;
 
@@ -668,11 +640,11 @@ static inline
 int merge_left(int is_branch,
                leaf_node *node,
                branch_node *parentnode,
-               child_index_type i,
-               child_index_type previ,
-               child_index_type *oldindex)
+               ChildIndexType i,
+               ChildIndexType previ,
+               ChildIndexType *oldindex)
 {
-    child_index_type leftlen, len;
+    ChildIndexType leftlen, len;
     struct elem_ref elems, leftelems, parentelem;
     leaf_node *leftnode;
 
@@ -715,11 +687,11 @@ static inline
 int merge_right(int is_branch,
                leaf_node *node,
                branch_node *parentnode,
-               child_index_type i,
-               child_index_type previ,
-               child_index_type *oldindex)
+               ChildIndexType i,
+               ChildIndexType previ,
+               ChildIndexType *oldindex)
 {
-    child_index_type rightlen, len;
+    ChildIndexType rightlen, len;
     struct elem_ref elems, rightelems, parentelem;
     leaf_node *rightnode;
 
@@ -766,8 +738,8 @@ int cursor_valid(const btree *m, const btree_cursor *cur)
 static inline
 void delete_at_cursor(btree *m, btree_cursor *cur)
 {
-    height_type depth = cur->_depth;
-    height_type height = m->_height;
+    HeightType depth = cur->_depth;
+    HeightType height = m->_height;
 
     /* a valid cursor cannot belong to a tree of zero height (no elements) */
     assert(height);
@@ -781,12 +753,12 @@ void delete_at_cursor(btree *m, btree_cursor *cur)
     /* if node is not leaf, swap with the nearest leaf to the left and fill
        the cursor stacks completely throughout [0, height) */
     if (depth < height - 1) {
-        height_type h = depth;
+        HeightType h = depth;
         leaf_node *uppernode = cur->_nodestack[depth];
-        child_index_type upperi = cur->_istack[depth];
+        ChildIndexType upperi = cur->_istack[depth];
         K *key = &leaf_keys(uppernode)[upperi];
         leaf_node *node = uppernode;
-        child_index_type i = upperi;
+        ChildIndexType i = upperi;
         ++h;
         do {
             node = branch_children(unsafe_leaf_as_branch(node))[i];
@@ -797,16 +769,16 @@ void delete_at_cursor(btree *m, btree_cursor *cur)
         } while (h < height);
         --cur->_istack[height - 1];
         leaf_node *lowernode = cur->_nodestack[height - 1];
-        child_index_type loweri = cur->_istack[height - 1];
+        ChildIndexType loweri = cur->_istack[height - 1];
         *key = leaf_keys(lowernode)[loweri];
         leaf_values(uppernode)[upperi] = leaf_values(lowernode)[loweri];
         depth = height - 1;
     }
 
-    child_index_type i = cur->_istack[depth];
+    ChildIndexType i = cur->_istack[depth];
     leaf_node *node = cur->_nodestack[depth];
     while (1) {
-        child_index_type len = *leaf_len(node);
+        ChildIndexType len = *leaf_len(node);
         int is_branch = depth != height - 1;
 
         /* easy case: no underflow (or is root node) */
@@ -827,7 +799,7 @@ void delete_at_cursor(btree *m, btree_cursor *cur)
 
         branch_node *parentnode =
             unsafe_leaf_as_branch(cur->_nodestack[depth - 1]);
-        child_index_type previ = cur->_istack[depth - 1];
+        ChildIndexType previ = cur->_istack[depth - 1];
 
         if (steal_left(is_branch, node, parentnode, i, previ) ||
             steal_right(is_branch, node, parentnode, i, previ))
@@ -850,49 +822,4 @@ int btree_delete(btree *m, const K *key)
     }
     delete_at_cursor(m, &cur);
     return 1;
-}
-
-static inline
-void dump_kv(const K *key, const V *value)
-{
-    printf("\033[37m%03zu\033[32m,%03.0f\033[0m\n", *key, *value);
-}
-
-static inline
-void dump_node(size_t indent, height_type height, leaf_node *m)
-{
-    static const char *indent_str = "  ";
-    size_t j;
-    child_index_type i;
-    branch_node *mb = try_leaf_as_branch(height, m);
-#ifdef VERBOSE
-    for (j = 0; j < indent; ++j) {
-        printf("%s", indent_str);
-    }
-    printf("dump_node(%p)\n", (void *)m);
-#endif
-    for (i = 0; i < *leaf_len(m); ++i) {
-        if (mb) {
-            dump_node(indent + 1, height - 1, branch_children(mb)[i]);
-        }
-        for (j = 0; j < indent; ++j) {
-            printf("%s", indent_str);
-        }
-        dump_kv(leaf_keys(m) + i, leaf_values(m) + i);
-    }
-    if (mb) {
-        dump_node(indent + 1, height - 1, branch_children(mb)[i]);
-    }
-}
-
-/** For debugging purposes. */
-static inline
-void dump_btree(btree *m)
-{
-    if (!m->_root) {
-        printf("(no root node)\n");
-    } else {
-        dump_node(0, m->_height - 1, m->_root);
-    }
-    printf("----------------------------------------\n");
 }
