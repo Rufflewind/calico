@@ -151,7 +151,7 @@ void test_random_inserts(zd_btree *t,
            // dump_btree(t);
 //            printf("delete(%zu), len:%zu\n", k, zd_btree_len(t));
 #endif
-            zd_btree_remove(t, &k, NULL);
+            zd_btree_remove(t, &k, NULL, NULL);
             ++ri;
         }
     }
