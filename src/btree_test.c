@@ -10,15 +10,15 @@
 typedef size_t key_type;
 typedef double value_type;
 
-#include "btree.h"
-cal_def_btree(zd, B, key_type, value_type, 1, cal_pcmp,
-              SearchFunction, unsigned short, unsigned char, inline)
+// #include "btree.h"
+// cal_def_btree(zd, B, key_type, value_type, 1, cal_pcmp,
+//               SearchFunction, unsigned short, unsigned char, inline)
 
-// #include "btree_head.h"
-// #define Prefix zd
-// #define K key_type
-// #define V value_type
-// #include "btree_template.h"
+#include "btree_head.h"
+#define Prefix zd
+#define K key_type
+#define V value_type
+#include "btree_template.h"
 
 static inline
 void dump_kv(const key_type *key, const value_type *value)
@@ -59,7 +59,7 @@ void dump_node(size_t indent, unsigned char height, zdpriv_btree_leaf_node *m)
 }
 
 /** For debugging purposes. */
-static inline
+static inline CAL_UNUSED
 void dump_btree(zd_btree *m)
 {
     if (!m->_root) {
@@ -151,7 +151,7 @@ void test_random_inserts(zd_btree *t,
            // dump_btree(t);
 //            printf("delete(%zu), len:%zu\n", k, zd_btree_len(t));
 #endif
-            zd_btree_delete(t, &k);
+            zd_btree_remove(t, &k, NULL);
             ++ri;
         }
     }
@@ -169,7 +169,7 @@ int main(void)
 
     printf("sizeof_leaf_node=%zu\n", sizeof(zdpriv_btree_leaf_node));
     printf("max_height=%zu\n", (size_t)zdpriv_btree_MAX_HEIGHT);
-    printf("sizeof_btree_cursor=%zu\n", sizeof(zd_btree_cursor));
+    printf("sizeof_btree_entry=%zu\n", sizeof(zd_btree_entry));
 
     zd_btree_reset(t);
     test_random_inserts(t, 25, 90, 20, 0);

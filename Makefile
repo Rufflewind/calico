@@ -10,10 +10,10 @@ src/arithmetic.h: src/arithmetic.h.py
 	src/arithmetic.h.py >$@.tmp
 	mv $@.tmp $@
 
-src/btree.h: src/btree_in.h
+src/btree.h: src/btree_in.h src/btree_impl.h
 	tools/pp preproc src/btree_in.h >$@.tmp
 	mv $@.tmp $@
 
-src/btree_template.h: src/btree_template_in.h
+src/btree_template.h: src/btree_template_in.h src/btree_impl.h
 	tools/pp preproc src/btree_template_in.h >$@.tmp
 	mv $@.tmp $@

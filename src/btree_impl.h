@@ -167,7 +167,7 @@ typedef struct {
     leaf_node *_nodestack[MAX_HEIGHT];
     ChildIndexType _istack[MAX_HEIGHT];
     HeightType _depth;
-} btree_cursor;
+} btree_entry;
 
 static inline
 void btree_init(btree *m)
@@ -202,6 +202,13 @@ static inline
 size_t btree_len(const btree *m)
 {
     return m->_len;
+}
+
+static inline
+int btree_entry_valid(const btree *m, const btree_entry *ent)
+{
+    assert(ent->_depth <= m->_height);
+    return ent->_depth != m->_height;
 }
 
 static inline
@@ -246,19 +253,36 @@ HeightType raw_lookup_node(leaf_node **nodestack,
 }
 
 static inline
-int btree_lookup(btree_cursor *cur, btree *m, const K *key)
+btree_entry btree_find(btree *m, const K *key)
 {
+    btree_entry ent;
     assert(m->_height <= MAX_HEIGHT);
-    if (!m->_height) {
-        cur->_depth = 0;
-        return 0;
+    ent._depth = 0;
+    if (m->_height) {
+        ent._depth = raw_lookup_node(ent._nodestack,
+                                     ent._istack,
+                                     m->_height,
+                                     m->_root,
+                                     key);
     }
-    cur->_depth = raw_lookup_node(cur->_nodestack,
-                                  cur->_istack,
-                                  m->_height,
-                                  m->_root,
-                                  key);
-    return cur->_depth != m->_height;
+    return ent;
+}
+
+static inline
+V *btree_entry_get_unsafe(const btree_entry *ent)
+{
+    return
+        leaf_values(ent->_nodestack[ent->_depth]) +
+        ent->_istack[ent->_depth];
+}
+
+static inline
+V *btree_entry_get(const btree *m, const btree_entry *ent)
+{
+    if (!btree_entry_valid(m, ent)) {
+        return NULL;
+    }
+    return btree_entry_get_unsafe(ent);
 }
 
 /** Return the node and the position within that node. */
@@ -315,7 +339,7 @@ const V *btree_get_const(const btree *m, const K *k)
 }
 
 static inline
-int btree_in(const btree *m, const K *k)
+int btree_contains_key(const btree *m, const K *k)
 {
     ChildIndexType i;
     return !!btree_get_node((btree *)m, k, &i);
@@ -423,10 +447,11 @@ int insert_node(HeightType height,
 {
     int r;
     HeightType h;
-    btree_cursor cur;
-    h = raw_lookup_node(cur._nodestack, cur._istack, height, node, key);
+    btree_entry ent;
+    h = raw_lookup_node(ent._nodestack, ent._istack, height, node, key);
+    ent._depth = h;
     if (h != height) {
-        leaf_values(cur._nodestack[h])[cur._istack[h]] = *value;
+        *btree_entry_get_unsafe(&ent) = *value;
         r = -1;
     } else {
         /* the rest of it does not depend on the comparison operation, only on
@@ -434,14 +459,14 @@ int insert_node(HeightType height,
         h = height - 1;
         struct elem_ref elem = {(K *)key, (V *)value, NULL};
         r = insert_node_here(0,
-                             cur._nodestack[h],
-                             cur._istack[h],
+                             ent._nodestack[h],
+                             ent._istack[h],
                              elem,
                              newelem);
         while (h-- && r < -1) {
             r = insert_node_here(1,
-                                 cur._nodestack[h],
-                                 cur._istack[h],
+                                 ent._nodestack[h],
+                                 ent._istack[h],
                                  newelem,
                                  newelem);
         }
@@ -685,11 +710,11 @@ int merge_left(int is_branch,
 
 static inline
 int merge_right(int is_branch,
-               leaf_node *node,
-               branch_node *parentnode,
-               ChildIndexType i,
-               ChildIndexType previ,
-               ChildIndexType *oldindex)
+                leaf_node *node,
+                branch_node *parentnode,
+                ChildIndexType i,
+                ChildIndexType previ,
+                ChildIndexType *oldindex)
 {
     ChildIndexType rightlen, len;
     struct elem_ref elems, rightelems, parentelem;
@@ -728,55 +753,50 @@ int merge_right(int is_branch,
     return 1;
 }
 
+/** Delete the element at a given valid entry.  The entry is destroyed in
+    the process.  If the entry is invalid, the behavior is undefined. */
 static inline
-int cursor_valid(const btree *m, const btree_cursor *cur)
+void btree_delete_at(btree *m, btree_entry *ent)
 {
-    assert(cur->_depth <= m->_height);
-    return cur->_depth != m->_height;
-}
-
-static inline
-void delete_at_cursor(btree *m, btree_cursor *cur)
-{
-    HeightType depth = cur->_depth;
+    HeightType depth = ent->_depth;
     HeightType height = m->_height;
 
-    /* a valid cursor cannot belong to a tree of zero height (no elements) */
+    /* a valid entry cannot belong to a tree of zero height (no elements) */
     assert(height);
 
     /* iterator must point to an exact match (as opposite to an "in-between"
        match, which is useful only for inserting elements) */
-    assert(cursor_valid(m, cur));
+    assert(btree_entry_valid(m, ent));
 
     --m->_len;
 
     /* if node is not leaf, swap with the nearest leaf to the left and fill
-       the cursor stacks completely throughout [0, height) */
+       the entry stacks completely throughout [0, height) */
     if (depth < height - 1) {
         HeightType h = depth;
-        leaf_node *uppernode = cur->_nodestack[depth];
-        ChildIndexType upperi = cur->_istack[depth];
+        leaf_node *uppernode = ent->_nodestack[depth];
+        ChildIndexType upperi = ent->_istack[depth];
         K *key = &leaf_keys(uppernode)[upperi];
         leaf_node *node = uppernode;
         ChildIndexType i = upperi;
         ++h;
         do {
             node = branch_children(unsafe_leaf_as_branch(node))[i];
-            cur->_nodestack[h] = node;
+            ent->_nodestack[h] = node;
             i = *leaf_len(node);
-            cur->_istack[h] = i;
+            ent->_istack[h] = i;
             ++h;
         } while (h < height);
-        --cur->_istack[height - 1];
-        leaf_node *lowernode = cur->_nodestack[height - 1];
-        ChildIndexType loweri = cur->_istack[height - 1];
+        --ent->_istack[height - 1];
+        leaf_node *lowernode = ent->_nodestack[height - 1];
+        ChildIndexType loweri = ent->_istack[height - 1];
         *key = leaf_keys(lowernode)[loweri];
         leaf_values(uppernode)[upperi] = leaf_values(lowernode)[loweri];
         depth = height - 1;
     }
 
-    ChildIndexType i = cur->_istack[depth];
-    leaf_node *node = cur->_nodestack[depth];
+    ChildIndexType i = ent->_istack[depth];
+    leaf_node *node = ent->_nodestack[depth];
     while (1) {
         ChildIndexType len = *leaf_len(node);
         int is_branch = depth != height - 1;
@@ -794,16 +814,17 @@ void delete_at_cursor(btree *m, btree_cursor *cur)
                 free(node);
                 --m->_height;
             }
-            return;
+            break;
         }
 
         branch_node *parentnode =
-            unsafe_leaf_as_branch(cur->_nodestack[depth - 1]);
-        ChildIndexType previ = cur->_istack[depth - 1];
+            unsafe_leaf_as_branch(ent->_nodestack[depth - 1]);
+        ChildIndexType previ = ent->_istack[depth - 1];
 
         if (steal_left(is_branch, node, parentnode, i, previ) ||
-            steal_right(is_branch, node, parentnode, i, previ))
+            steal_right(is_branch, node, parentnode, i, previ)) {
             break;
+        }
 
         merge_left(is_branch, node, parentnode, i, previ, &i) ||
         merge_right(is_branch, node, parentnode, i, previ, &i);
@@ -814,12 +835,15 @@ void delete_at_cursor(btree *m, btree_cursor *cur)
 }
 
 static inline
-int btree_delete(btree *m, const K *key)
+int btree_remove(btree *m, const K *key, V *value)
 {
-    btree_cursor cur;
-    if (!btree_lookup(&cur, m, key)) {
+    btree_entry ent = btree_find(m, key);
+    if (!btree_entry_valid(m, &ent)) {
         return 0;
     }
-    delete_at_cursor(m, &cur);
+    if (value) {
+        *value = *btree_entry_get_unsafe(&ent);
+    }
+    btree_delete_at(m, &ent);
     return 1;
 }
