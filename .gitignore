@@ -1,3 +1,5 @@
+doc/
+tmp/
 src/arithmetic.h
 src/btree.h
 src/btree_template.h
@@ -6,7 +8,6 @@ src/btree_template.h
 .#*
 \#*#
 .nfs????
-dist/
 [tT]humbs.db
 *~
 *.log
@@ -38,7 +39,8 @@ a.out
 
 # Haskell
 .cabal-sandbox/
-.stack-work
+.stack-work/
+dist/
 cabal.sandbox.config
 *.chi
 *.hcr

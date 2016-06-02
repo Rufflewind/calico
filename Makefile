@@ -1,10 +1,20 @@
-test: src/btree.h src/btree_template.h
-	./test.sh
+all: test
+
+build: src/btree.h src/btree_template.h
 
 clean:
 	rm -f src/arithmetic.h src/btree.h src/btree_template.h
 
-.PHONY: clean test
+doc: build
+	rm -r tmp/doc-src
+	mkdir tmp/doc-src
+	cp src/btree_impl.h tmp/doc-src/btree_template.h
+	doxygen
+
+test: build
+	./test.sh
+
+.PHONY: all build clean doc test
 
 src/arithmetic.h: src/arithmetic.h.py
 	src/arithmetic.h.py >$@.tmp

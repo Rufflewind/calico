@@ -1,3 +1,8 @@
+/** @file
+
+Associative arrays implemented using B-trees.
+*/
+
 static inline
 int generic_compare(void *ctx, const void *x, const void *y)
 {
@@ -22,7 +27,7 @@ cal_cond(HasValue)(
 ,)
 } leaf_node;
 
-/** A simple container used for readability purposes */
+/* A simple container used for readability purposes */
 struct elem_ref {
     K *key;
 cal_cond(HasValue)(
@@ -57,7 +62,7 @@ K *leaf_keys(leaf_node *m)
 static inline
 V *leaf_values(leaf_node *m)
 {
-    return HasValue ? m->_values : NULL;
+    return cal_cond(HasValue)(m->_values, leaf_keys(m));
 }
 
 typedef struct {
@@ -105,10 +110,11 @@ K *branch_keys(branch_node *m)
 static inline
 V *branch_values(branch_node *m)
 {
-    return HasValue ? leaf_values(branch_as_leaf(m)) : NULL;
+    leaf_node *ml = branch_as_leaf(m);
+    return cal_cond(HasValue)(leaf_values, leaf_keys)(ml);
 }
 
-/** It must actually be a branch, or this will cause UB. */
+/* It must actually be a branch, or this will cause UB. */
 static inline
 branch_node *unsafe_leaf_as_branch(leaf_node *m)
 {
@@ -116,14 +122,14 @@ branch_node *unsafe_leaf_as_branch(leaf_node *m)
     return (branch_node *)m;
 }
 
-/** It must actually be a branch, or this will cause UB. */
+/* It must actually be a branch, or this will cause UB. */
 static inline
 leaf_node **unsafe_leaf_children(leaf_node *m)
 {
     return branch_children(unsafe_leaf_as_branch(m));
 }
 
-/** May return NULL if it's not a branch. */
+/* May return NULL if it's not a branch. */
 static inline
 branch_node *try_leaf_as_branch(int is_branch, leaf_node *m)
 {
@@ -147,6 +153,7 @@ struct elem_ref node_elems(int is_branch, leaf_node *m)
     return r;
 }
 
+/** An associative array data structure backed by a B-tree. */
 typedef struct {
     leaf_node *_root;
     ChildIndexType _len;
@@ -163,12 +170,16 @@ enum {
 static_assert((HeightType)MAX_HEIGHT == MAX_HEIGHT, "height is too big");
 static_assert((ChildIndexType)B == B, "B is too big");
 
+/** Refers to a specific location in a B-tree.  If the entry is vacant, then
+    an element may be inserted at the location.  If the entry is occupied,
+    then its value may be read, or the element may be removed entirely. */
 typedef struct {
     leaf_node *_nodestack[MAX_HEIGHT];
     ChildIndexType _istack[MAX_HEIGHT];
     HeightType _depth;
 } btree_entry;
 
+/** Initializes a `btree`. */
 static inline
 void btree_init(btree *m)
 {
@@ -182,13 +193,15 @@ void free_node(HeightType height, leaf_node *m)
 {
     branch_node *mb = try_leaf_as_branch(height, m);
     if (mb) {
-        for (ChildIndexType i = 0; i < *leaf_len(m) + 1; ++i) {
+        ChildIndexType i;
+        for (i = 0; i < *leaf_len(m) + 1; ++i) {
             free_node(height - 1, branch_children(mb)[i]);
         }
     }
     free(m);
 }
 
+/** Removes all elements from a `btree` and frees any associated resources. */
 static inline
 void btree_reset(btree *m)
 {
@@ -198,14 +211,16 @@ void btree_reset(btree *m)
     btree_init(m);
 }
 
+/** Gets the number of elements. */
 static inline
 size_t btree_len(const btree *m)
 {
     return m->_len;
 }
 
+/** Returns whether a entry refers to an existing element. */
 static inline
-int btree_entry_valid(const btree *m, const btree_entry *ent)
+int btree_entry_occupied(const btree *m, const btree_entry *ent)
 {
     assert(ent->_depth <= m->_height);
     return ent->_depth != m->_height;
@@ -235,7 +250,7 @@ leaf_node *lookup_iter(ChildIndexType *i_out,
     return branch_children(unsafe_leaf_as_branch(node))[*i_out];
 }
 
-/** Return the node and the position within that node. */
+/* Return the node and the position within that node. */
 static inline
 HeightType raw_lookup_node(leaf_node **nodestack,
                             ChildIndexType *istack,
@@ -252,6 +267,8 @@ HeightType raw_lookup_node(leaf_node **nodestack,
     return h;
 }
 
+/** Searches for the given `key`.  The entry returned can be either occupied
+    or vacant, which indicates whether the `key` was found. */
 static inline
 btree_entry btree_find(btree *m, const K *key)
 {
@@ -268,6 +285,8 @@ btree_entry btree_find(btree *m, const K *key)
     return ent;
 }
 
+/** Gets a pointer to the value at an occupied entry.  If the entry is not
+    occupied, the behavior is undefined. */
 static inline
 V *btree_entry_get_unsafe(const btree_entry *ent)
 {
@@ -276,16 +295,17 @@ V *btree_entry_get_unsafe(const btree_entry *ent)
         ent->_istack[ent->_depth];
 }
 
+/** Gets a pointer to the value at an entry.  If the entry is not occupied,
+    `NULL` is returned. */
 static inline
 V *btree_entry_get(const btree *m, const btree_entry *ent)
 {
-    if (!btree_entry_valid(m, ent)) {
+    if (!btree_entry_occupied(m, ent)) {
         return NULL;
     }
     return btree_entry_get_unsafe(ent);
 }
 
-/** Return the node and the position within that node. */
 static inline
 leaf_node *find_node(HeightType height,
                      leaf_node *node,
@@ -305,9 +325,9 @@ leaf_node *find_node(HeightType height,
     return node;
 }
 
-/** Return the node and the position within that node. */
+/* Return the node and the position within that node. */
 static inline
-leaf_node *btree_get_node(btree *m, const K *key, ChildIndexType *index)
+leaf_node *get_node(btree *m, const K *key, ChildIndexType *index)
 {
     if (!m->_root) {
         assert(m->_height == 0);
@@ -317,38 +337,38 @@ leaf_node *btree_get_node(btree *m, const K *key, ChildIndexType *index)
     return find_node(m->_height, m->_root, key, index);
 }
 
+/** Retrieves the value with the given key.  Returns `NULL` if it is not
+    found. */
 static inline
 V *btree_get(btree *m, const K *k)
 {
     ChildIndexType i;
     leaf_node *n;
-    if (!HasValue) {
-        return NULL;
-    }
-    n = btree_get_node(m, k, &i);
+    n = get_node(m, k, &i);
     if (!n) {
         return NULL;
     }
     return leaf_values(n) + i;
 }
 
+/** Retrieves the value with the given key.  Returns `NULL` if it is not
+    found. */
 static inline
 const V *btree_get_const(const btree *m, const K *k)
 {
     return btree_get((btree *)m, k);
 }
 
+/** Returns whether the the given key exists in the `btree`. */
 static inline
 int btree_contains_key(const btree *m, const K *k)
 {
     ChildIndexType i;
-    return !!btree_get_node((btree *)m, k, &i);
+    return !!get_node((btree *)m, k, &i);
 }
 
 static inline
-void copy_elems(struct elem_ref dst,
-                struct elem_ref src,
-                size_t count)
+void copy_elems(struct elem_ref dst, struct elem_ref src, size_t count)
 {
     /* use memmove due to potential for overlap; it's not always needed, but
        better safe than sorry and the performance impact here is minimal */
@@ -474,6 +494,9 @@ int insert_node(HeightType height,
     return r;
 }
 
+/** Inserts an element into the `btree`.  If an element with the same `key`
+    already exists, its value is replaced (the key remains unchanged,
+    however). */
 static inline
 int btree_insert(btree *m, const K *key, const V *value)
 {
@@ -753,10 +776,10 @@ int merge_right(int is_branch,
     return 1;
 }
 
-/** Delete the element at a given valid entry.  The entry is destroyed in
-    the process.  If the entry is invalid, the behavior is undefined. */
+/** Removes the element at an occupied entry.  The entry is destroyed in the
+    process.  If the entry is not occupied, the behavior is undefined. */
 static inline
-void btree_delete_at(btree *m, btree_entry *ent)
+void btree_entry_remove(btree *m, btree_entry *ent)
 {
     HeightType depth = ent->_depth;
     HeightType height = m->_height;
@@ -766,7 +789,7 @@ void btree_delete_at(btree *m, btree_entry *ent)
 
     /* iterator must point to an exact match (as opposite to an "in-between"
        match, which is useful only for inserting elements) */
-    assert(btree_entry_valid(m, ent));
+    assert(btree_entry_occupied(m, ent));
 
     --m->_len;
 
@@ -834,16 +857,19 @@ void btree_delete_at(btree *m, btree_entry *ent)
     }
 }
 
+/** Removes the element at the given key and stores the result in `*value`,
+    returning `1`.  If the element does not exist, does nothing and returns
+    `0`. */
 static inline
 int btree_remove(btree *m, const K *key, V *value)
 {
     btree_entry ent = btree_find(m, key);
-    if (!btree_entry_valid(m, &ent)) {
+    if (!btree_entry_occupied(m, &ent)) {
         return 0;
     }
     if (value) {
         *value = *btree_entry_get_unsafe(&ent);
     }
-    btree_delete_at(m, &ent);
+    btree_entry_remove(m, &ent);
     return 1;
 }
