@@ -18,7 +18,7 @@ cal_def_btree(zd, B, key_type, value_type, 1, cal_pcmp,
 // #define Prefix zd
 // #define K key_type
 // #define V value_type
-// #include "btree.h"
+// #include "btree_template.h"
 
 static inline
 void dump_kv(const key_type *key, const value_type *value)

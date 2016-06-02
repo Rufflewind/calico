@@ -1,4 +1,6 @@
 src/arithmetic.h
+src/btree.h
+src/btree_template.h
 
 # generic
 .#*

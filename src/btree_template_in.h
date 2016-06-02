@@ -1,11 +1,11 @@
 #include "compat/inline_begin.h"
 #include "compat/static_assert_begin.h"
 #ifndef HasValue
-# ifdef V
-#  define HasValue 1
-# else
-#  define HasValue 0
-# endif
+#ifdef V
+#define HasValue 1
+#else
+#define HasValue 0
+#endif
 #endif
 /*@
 make_template(
