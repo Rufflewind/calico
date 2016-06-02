@@ -119,7 +119,9 @@ void test_random_inserts(zd_btree *t,
             if (dump) {
                 dump_btree(t);
             }
-            assert(*zd_btree_get(t, &k) == v);
+            value_type *v2 = zd_btree_get(t, &k);
+            assert(v2);
+            assert(*v2 == v);
 #endif
 #endif
         }
