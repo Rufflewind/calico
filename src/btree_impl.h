@@ -62,20 +62,20 @@ int main(void)
 */
 
 typedef struct {
-cal_cond_ndebug(,
-    /* when assertions are enabled, track whether it's a branch or leaf to
-       catch bugs more easily */
-    int _is_branch;
-)
-    /* the number of valid keys (or number of valid values),
-       ranging from 0 to 2 * B - 1 */
-    ChildIndexType _len;
     /* an array of keys, with [0, _len) valid */
     K _keys[2 * B - 1];
 cal_cond(HasValue)(
     /* an array of values, with [0, _len) valid */
     V _values[2 * B - 1];
 ,)
+    /* the number of valid keys (or number of valid values),
+       ranging from 0 to 2 * B - 1 */
+    ChildIndexType _len;
+cal_cond_ndebug(,
+    /* when assertions are enabled, track whether it's a branch or leaf to
+       catch bugs more easily */
+    int _is_branch;
+)
 } leaf_node;
 
 typedef struct {
@@ -318,40 +318,26 @@ leaf_node *lookup_iter(ChildIndexType *i_out,
     return branch_children(unsafe_leaf_as_branch(node))[*i_out];
 }
 
-/* Return the node and the position within that node. */
-static inline
-HeightType raw_lookup_node(leaf_node **nodestack,
-                           ChildIndexType *istack,
-                           HeightType height,
-                           leaf_node *node,
-                           const K *key)
-{
-    HeightType h = 0;
-    assert(key);
-    assert(height);
-    nodestack[0] = node;
-    while ((node = lookup_iter(&istack[h], nodestack[h], &h, height, key))) {
-        nodestack[h] = node;
-    }
-    return h;
-}
-
 /** Searches for the given `key`.  The entry returned can be either occupied
     or vacant, which indicates whether the `key` was found. */
 static inline
 void btree_find(btree *m, const K *key, btree_entry *entry_out)
 {
+    HeightType height = m->_height;
+    assert(key);
     assert(entry_out);
-    assert(m->_height <= MAX_HEIGHT);
+    assert(height <= MAX_HEIGHT);
     entry_out->_depth = 0;
-    if (m->_height) {
-        entry_out->_depth = raw_lookup_node(
-            entry_out->_nodestack,
-            entry_out->_istack,
-            m->_height,
-            m->_root,
-            key
-        );
+    if (height) {
+        HeightType h = 0;
+        leaf_node *node = m->_root;
+        entry_out->_nodestack[0] = node;
+        while ((node = lookup_iter(entry_out->_istack + h,
+                                   entry_out->_nodestack[h],
+                                   &h, height, key))) {
+            entry_out->_nodestack[h] = node;
+        }
+        entry_out->_depth = h;
     }
 }
 
