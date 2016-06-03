@@ -115,7 +115,8 @@ void test_random(zd_btree *t,
 
     key_type *keys = (size_t *)malloc(l * sizeof(*keys));
     long prev_key = -1;
-    for (zd_btree_entry entry = zd_btree_find_first(t);
+    zd_btree_entry entry;
+    for (zd_btree_find_first(t, &entry);
          zd_btree_entry_occupied(t, &entry);
          zd_btree_entry_next(t, &entry)) {
         key_type key = *zd_btree_entry_key(&entry);
@@ -127,7 +128,7 @@ void test_random(zd_btree *t,
         keys[l] = key;
     }
     assert(l == 0);
-    for (zd_btree_entry entry = zd_btree_find_last(t);
+    for (zd_btree_find_last(t, &entry);
          zd_btree_entry_occupied(t, &entry);
          zd_btree_entry_prev(t, &entry)) {
         key_type key = *zd_btree_entry_key(&entry);
@@ -180,8 +181,9 @@ void bench_random(zd_btree *t,
     }
     printf("len_%u_%u=%zu\n", range, count, zd_btree_len(t));
     snprintf(name, sizeof(name), "sequential_lookups_%u_%u", range, count);
+    zd_btree_entry entry;
     TIME(name) {
-        for (zd_btree_entry entry = zd_btree_find_first(t);
+        for (zd_btree_find_first(t, &entry);
              zd_btree_entry_occupied(t, &entry);
              zd_btree_entry_next(t, &entry)) {
             dummyu((unsigned)*zd_btree_entry_key(&entry) +

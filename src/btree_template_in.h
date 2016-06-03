@@ -18,7 +18,7 @@ make_template(
         "K",
         "V=void",
         "CompareFunction=cal_pcmp",
-        "SearchFunction=linear_sorted_search",
+        "SearchFunction=linear_ordered_search",
         "ChildIndexType=unsigned short",
         "HeightType=unsigned char",
     ],

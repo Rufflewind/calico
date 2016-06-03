@@ -261,7 +261,7 @@ void free_node(HeightType height, leaf_node *m)
     released, `btree_reset` does *not* release them!  In this situation, one
     must manually iterate over each element and release them:
     ~~~c
-    for (entry = btree_find_first(m);
+    for (btree_find_first(m, &entry);
          btree_entry_occupied(m, &entry);
          btree_entry_next(m, &entry)) {
         free(btree_entry_key(&entry));
@@ -327,6 +327,7 @@ HeightType raw_lookup_node(leaf_node **nodestack,
                            const K *key)
 {
     HeightType h = 0;
+    assert(key);
     assert(height);
     nodestack[0] = node;
     while ((node = lookup_iter(&istack[h], nodestack[h], &h, height, key))) {
@@ -338,19 +339,20 @@ HeightType raw_lookup_node(leaf_node **nodestack,
 /** Searches for the given `key`.  The entry returned can be either occupied
     or vacant, which indicates whether the `key` was found. */
 static inline
-btree_entry btree_find(btree *m, const K *key)
+void btree_find(btree *m, const K *key, btree_entry *entry_out)
 {
-    btree_entry ent;
+    assert(entry_out);
     assert(m->_height <= MAX_HEIGHT);
-    ent._depth = 0;
+    entry_out->_depth = 0;
     if (m->_height) {
-        ent._depth = raw_lookup_node(ent._nodestack,
-                                     ent._istack,
-                                     m->_height,
-                                     m->_root,
-                                     key);
+        entry_out->_depth = raw_lookup_node(
+            entry_out->_nodestack,
+            entry_out->_istack,
+            m->_height,
+            m->_root,
+            key
+        );
     }
-    return ent;
 }
 
 static inline
@@ -378,33 +380,31 @@ void move_to_extremum(HeightType height,
 }
 
 static inline
-btree_entry find_extremum(btree *m, ChildIndexType which)
+void find_extremum(btree *m, ChildIndexType which, btree_entry *entry_out)
 {
-    btree_entry ent;
     HeightType height = m->_height;
     assert(height <= MAX_HEIGHT);
-    ent._depth = 0;
+    entry_out->_depth = 0;
     if (height) {
-        move_to_extremum(height, m->_root, which, &ent._depth,
-                         ent._istack, ent._nodestack);
+        move_to_extremum(height, m->_root, which, &entry_out->_depth,
+                         entry_out->_istack, entry_out->_nodestack);
     }
-    return ent;
 }
 
 /** Locates the first (least) entry.  If the B-tree is empty, a vacant entry
     is returned. */
 static inline
-btree_entry btree_find_first(btree *m)
+void btree_find_first(btree *m, btree_entry *entry_out)
 {
-    return find_extremum(m, 0);
+    find_extremum(m, 0, entry_out);
 }
 
 /** Locates the last (greatest) entry.  If the B-tree is empty, a vacant entry
     is returned. */
 static inline
-btree_entry btree_find_last(btree *m)
+void btree_find_last(btree *m, btree_entry *entry_out)
 {
-    return find_extremum(m, 1);
+    find_extremum(m, 1, entry_out);
 }
 
 /** Returns whether a entry refers to an existing element. */
@@ -669,32 +669,67 @@ int insert_node_here(int is_branch,
     return -2;
 }
 
+/** Inserts an element into the `btree` at a vacant entry.  If the entry is
+    not vacant, the behavior is undefined.
+
+    @note The `key` must match the original key used to obtain the vacant
+    entry, or the behavior is undefined. */
 static inline
-int insert_node(HeightType height,
-                leaf_node *node,
-                const K *key,
-                const V *value,
-                struct elem_ref newelem)
+int btree_entry_insert(btree *m, btree_entry *entry,
+                       const K *key, const V *value)
 {
+    K newkey;
+    V newvalue;
+    leaf_node *newchild;
+    struct elem_ref newelem = {&newkey, &newvalue, &newchild};
+    struct elem_ref elem = {(K *)key, (V *)value, NULL};
+    HeightType h, height = m->_height;
     int r;
-    HeightType h;
-    btree_entry ent;
-    h = raw_lookup_node(ent._nodestack, ent._istack, height, node, key);
-    ent._depth = h;
-    if (h != height) {
-        *btree_entry_get(&ent) = *value;
-        r = -1;
-    } else {
-        struct elem_ref elem = {(K *)key, (V *)value, NULL};
-        h = (HeightType)(height - 1);
-        r = insert_node_here(0, ent._nodestack[h], ent._istack[h],
-                             elem, newelem);
-        while (h-- && r < -1) {
-            r = insert_node_here(1, ent._nodestack[h], ent._istack[h],
-                                 newelem, newelem);
+    if (!height) {
+        assert(!m->_len);
+        assert(!m->_root);
+        m->_root = alloc_leaf();
+        if (!m->_root) {
+            return 1;
         }
+        ++m->_len;
+        m->_height = 1;
+        *leaf_len(m->_root) = 1;
+        leaf_keys(m->_root)[0] = *key;
+        leaf_values(m->_root)[0] = *value;
+        return 0;
     }
-    return r;
+    h = (HeightType)(height - 1);
+    r = insert_node_here(0, entry->_nodestack[h], entry->_istack[h],
+                         elem, newelem);
+    while (h-- && r < -1) {
+        r = insert_node_here(1, entry->_nodestack[h], entry->_istack[h],
+                             newelem, newelem);
+    }
+    if (r > 0) {
+        return r;
+    }
+    if (r < 0) {
+        branch_node *newroot = alloc_branch();
+        if (!newroot) {
+            /* FIXME: we should return 1 instead of failing, but we'd need
+               to rollback the incomplete insert, which is tricky :c */
+            fprintf(stderr, "%s:%lu: Out of memory\n",
+                    __FILE__, (unsigned long)__LINE__);
+            fflush(stderr);
+            abort();
+        }
+        ++m->_height;
+        *branch_len(newroot) = 1;
+        branch_keys(newroot)[0] = newkey;
+        branch_values(newroot)[0] = newvalue;
+        branch_children(newroot)[0] = m->_root;
+        branch_children(newroot)[1] = newchild;
+        m->_root = branch_as_leaf(newroot);
+        r = 0;
+    }
+    ++m->_len;
+    return 0;
 }
 
 /** Inserts an element into the `btree`.  If an element with the same `key`
@@ -710,54 +745,13 @@ int insert_node(HeightType height,
 static inline
 int btree_insert(btree *m, const K *key, const V *value)
 {
-    if (!m->_root) {
-        assert(m->_len == 0);
-        assert(m->_height == 0);
-        m->_root = alloc_leaf();
-        if (!m->_root) {
-            return 1;
-        }
-        ++m->_len;
-        m->_height = 1;
-        *leaf_len(m->_root) = 1;
-        leaf_keys(m->_root)[0] = *key;
-        leaf_values(m->_root)[0] = *value;
+    btree_entry ent;
+    btree_find(m, key, &ent);
+    if (btree_entry_occupied(m, &ent)) {
+        *btree_entry_get(&ent) = *value;
         return 0;
     }
-    K newkey;
-    V newvalue;
-    leaf_node *newchild;
-    struct elem_ref newelem = {&newkey, &newvalue, &newchild};
-    int r = insert_node(m->_height,
-                        m->_root,
-                        key,
-                        value,
-                        newelem);
-    if (r == -1) {                      /* updated an existing element */
-        r = 0;
-    } else {                            /* added a new element */
-        ++m->_len;
-    }
-    if (r >= 0) {
-        return r;
-    }
-    branch_node *newroot = alloc_branch();
-    if (!newroot) {
-        /* FIXME: we should return 1 instead of failing, but we'd need
-           to rollback the incomplete insert, which is tricky :c */
-        fprintf(stderr, "%s:%lu: Out of memory\n",
-                __FILE__, (unsigned long)__LINE__);
-        fflush(stderr);
-        abort();
-    }
-    ++m->_height;
-    *branch_len(newroot) = 1;
-    branch_keys(newroot)[0] = newkey;
-    branch_values(newroot)[0] = newvalue;
-    branch_children(newroot)[0] = m->_root;
-    branch_children(newroot)[1] = newchild;
-    m->_root = branch_as_leaf(newroot);
-    return 0;
+    return btree_entry_insert(m, &ent, key, value);
 }
 
 /* to get the left parent, use index = i - 1;
@@ -1089,7 +1083,8 @@ void btree_entry_remove(btree *m, btree_entry *ent)
 static inline
 int btree_remove(btree *m, const K *key, K *key_out, V *value_out)
 {
-    btree_entry ent = btree_find(m, key);
+    btree_entry ent;
+    btree_find(m, key, &ent);
     if (!btree_entry_occupied(m, &ent)) {
         return 0;
     }
