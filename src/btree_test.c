@@ -42,7 +42,7 @@ void dump_node(size_t indent, unsigned char height, zdpriv_btree_leaf_node *m)
     for (i = 0; i < *zdpriv_btree_leaf_len(m); ++i) {
         if (mb) {
             dump_node(indent + 1,
-                      height - 1,
+                      (unsigned char)(height - 1),
                       zdpriv_btree_branch_children(mb)[i]);
         }
         for (j = 0; j < indent; ++j) {
@@ -53,7 +53,7 @@ void dump_node(size_t indent, unsigned char height, zdpriv_btree_leaf_node *m)
     }
     if (mb) {
         dump_node(indent + 1,
-                  height - 1,
+                  (unsigned char)(height - 1),
                   zdpriv_btree_branch_children(mb)[i]);
     }
 }
@@ -65,14 +65,14 @@ void dump_btree(zd_btree *m)
     if (!m->_root) {
         printf("(no root node)\n");
     } else {
-        dump_node(0, m->_height - 1, m->_root);
+        dump_node(0, (unsigned char)(m->_height - 1), m->_root);
     }
     printf("----------------------------------------\n");
 }
 
 #include "wclock.h"
 static wclock clk;
-#ifdef PROFILE
+#ifdef BENCH
 static int timing_counter;
 static double clk_time;
 #define TIME(name)                                                      \
@@ -84,18 +84,59 @@ static double clk_time;
 #define TIME(name)
 #endif
 
-#ifdef PROFILE
+#ifdef BENCH
 void dummy(void *);
-#else
-#define dummy(x) (void)(x)
+void dummyu(unsigned);
 #endif
 
+#ifndef BENCH
 static
-void test_random_inserts(zd_btree *t,
-                         unsigned seed,
-                         unsigned range,
-                         unsigned count,
-                         int dump)
+void test_random(zd_btree *t,
+                 unsigned seed,
+                 unsigned range,
+                 unsigned count)
+{
+    srand(seed);
+    for (unsigned i = 0; i < count; ++i) {
+        size_t k = (unsigned)rand() % range;
+        double v = (double)(range - k);
+        int r = zd_btree_insert(t, &k, &v);
+        (void)r;
+        assert(!r);
+        value_type *v2 = zd_btree_get(t, &k);
+        assert(v2);
+        assert(*v2 == v);
+    }
+    for (unsigned i = 0; i < count; ++i) {
+        size_t k = (unsigned)rand() % range;
+        zd_btree_get(t, &k);
+    }
+    size_t l = zd_btree_len(t);
+    long prev_key = -1;
+    for (zd_btree_entry entry = zd_btree_find_first(t);
+         zd_btree_entry_occupied(t, &entry);
+         zd_btree_entry_next(t, &entry)) {
+        long key = (long)*zd_btree_entry_key(&entry);
+        value_type value = *zd_btree_entry_get(&entry);
+        assert(prev_key < key);
+        prev_key = key;
+        assert(range - key == value);
+        --l;
+    }
+    assert(l == 0);
+    unsigned ri = 0;
+    while (zd_btree_len(t)) {
+        size_t k = (unsigned)rand() % range;
+        zd_btree_remove(t, &k, NULL, NULL);
+        ++ri;
+    }
+}
+#else
+static
+void bench_random(zd_btree *t,
+                  unsigned seed,
+                  unsigned range,
+                  unsigned count)
 {
     char name[512];
     srand(seed);
@@ -105,24 +146,9 @@ void test_random_inserts(zd_btree *t,
             size_t k = (unsigned)rand() % range;
             double v = (double)((unsigned)rand() % range);
 #ifdef BASE
-            dummy(&k);
+            dummyu((unsigned)k);
 #else
-#ifndef PROFILE
-            if (dump) {
-                printf("insert(%zu, %f)\n", k, v);
-            }
-#endif
-            int r = zd_btree_insert(t, &k, &v);
-            (void)r;
-            assert(!r);
-#ifndef PROFILE
-            if (dump) {
-                dump_btree(t);
-            }
-            value_type *v2 = zd_btree_get(t, &k);
-            assert(v2);
-            assert(*v2 == v);
-#endif
+            dummyu((unsigned)zd_btree_insert(t, &k, &v));
 #endif
         }
     }
@@ -131,15 +157,20 @@ void test_random_inserts(zd_btree *t,
         for (unsigned i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % range;
 #ifdef BASE
-            dummy(&k);
+            dummyu((unsigned)k);
 #else
-// #ifndef PROFILE
-//             if (dump) {
-//                 printf("lookup(%zu)\n", k);
-//             }
-// #endif
-            dummy(zd_btree_get(t, &k));
+            dummyu((unsigned)*zd_btree_get(t, &k));
 #endif
+        }
+    }
+    printf("len_%u_%u=%zu\n", range, count, zd_btree_len(t));
+    snprintf(name, sizeof(name), "sequential_lookups_%u_%u", range, count);
+    TIME(name) {
+        for (zd_btree_entry entry = zd_btree_find_first(t);
+             zd_btree_entry_occupied(t, &entry);
+             zd_btree_entry_next(t, &entry)) {
+            dummyu((unsigned)*zd_btree_entry_key(&entry) +
+                   (unsigned)*zd_btree_entry_get(&entry));
         }
     }
     snprintf(name, sizeof(name), "random_deletes_%u_%u", range, count);
@@ -147,17 +178,13 @@ void test_random_inserts(zd_btree *t,
     TIME(name) {
         while (zd_btree_len(t)) {
             size_t k = (unsigned)rand() % range;
-#ifndef PROFILE
-           // dump_btree(t);
-//            printf("delete(%zu), len:%zu\n", k, zd_btree_len(t));
-#endif
             zd_btree_remove(t, &k, NULL, NULL);
             ++ri;
         }
     }
     printf("count_random_deletes_%u_%u=%u\n", range, count, ri);
-    // dump_btree(t);
 }
+#endif
 
 int main(void)
 {
@@ -166,23 +193,32 @@ int main(void)
 
     zd_btree_init(t);
     zd_btree_reset(t);
+    zd_btree_reset(t);
 
+#ifndef BENCH
     printf("sizeof_leaf_node=%zu\n", sizeof(zdpriv_btree_leaf_node));
     printf("max_height=%zu\n", (size_t)zdpriv_btree_MAX_HEIGHT);
     printf("sizeof_btree_entry=%zu\n", sizeof(zd_btree_entry));
 
     zd_btree_reset(t);
-    test_random_inserts(t, 25, 90, 20, 0);
+    test_random(t, 25, 90, 20);
     zd_btree_reset(t);
-    test_random_inserts(t, 80, 10000, 10000, 0);
+    test_random(t, 80, 10000, 10000);
     zd_btree_reset(t);
-    test_random_inserts(t, 100, 100, 300, 0);
+    test_random(t, 100, 100, 300);
     zd_btree_reset(t);
-    test_random_inserts(t, 101, 100, 300, 0);
+    test_random(t, 101, 100, 300);
     zd_btree_reset(t);
-    test_random_inserts(t, 105, 100, 300, 0);
+    test_random(t, 105, 100, 300);
     zd_btree_reset(t);
-    test_random_inserts(t, 1, 40, 40, 0);
+    test_random(t, 1, 40, 40);
     zd_btree_reset(t);
+#else
+#ifndef MAX
+#define MAX 10000
+#endif
+    bench_random(t, 80, MAX, MAX);
+    zd_btree_reset(t);
+#endif
     return 0;
 }

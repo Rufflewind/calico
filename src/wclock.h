@@ -105,7 +105,7 @@ double get_wclock(const wclock *self)
     if (clock_gettime(CLOCK_MONOTONIC, &t)) {
         return NAN;
     }
-    return t.tv_sec + t.tv_nsec * 1e-9;
+    return (double)t.tv_sec + (double)t.tv_nsec * 1e-9;
 #endif
 }
 
@@ -120,7 +120,7 @@ double get_wclock_res(const wclock *self)
     if (clock_getres(CLOCK_MONOTONIC, &t)) {
         return NAN;
     }
-    return t.tv_sec + t.tv_nsec * 1e-9;
+    return (double)t.tv_sec + (double)t.tv_nsec * 1e-9;
 #endif
 }
 

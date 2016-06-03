@@ -12,7 +12,7 @@ doc: build
 	doxygen
 
 test: build
-	./test.sh
+	$(CC) -g -Wall -Wextra -Wconversion -pedantic -std=gnu11 $(ARGS) src/btree_test.c && valgrind $(VALGRINDFLAGS) ./a.out
 
 .PHONY: all build clean doc test
 

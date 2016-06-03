@@ -44,6 +44,7 @@ enum {
 
 static_assert((HeightType)MAX_HEIGHT == MAX_HEIGHT, "height is too big");
 static_assert((ChildIndexType)B == B, "B is too big");
+static_assert(B >= 2, "B must be at least 2");
 
 /** Refers to a specific location in a B-tree.  If the entry is vacant, then
     an element may be inserted at the location.  If the entry is occupied,
@@ -173,7 +174,7 @@ struct elem_ref node_elems(int is_branch, leaf_node *m)
     return r;
 }
 
-/** Initializes a `btree`. */
+/** Initializes an empty `btree`. */
 static inline
 void btree_init(btree *m)
 {
@@ -189,22 +190,22 @@ void free_node(HeightType height, leaf_node *m)
     if (mb) {
         ChildIndexType i;
         for (i = 0; i < *leaf_len(m) + 1; ++i) {
-            free_node(height - 1, branch_children(mb)[i]);
+            free_node((HeightType)(height - 1), branch_children(mb)[i]);
         }
     }
     free(m);
 }
 
 /** Removes all elements from a `btree` and frees all memory consumed by the
-    B-tree nodes.
+    B-tree nodes.  This operation does not read any of the keys.
 
     @note If the keys or values are associated with resources that need to be
     released, `btree_reset` does *not* release them!  In this situation, one
     must manually iterate over each element and release them:
     ~~~c
-    for (entry = btree_first(m);
+    for (entry = btree_find_first(m);
          btree_entry_occupied(m, &entry);
-         btree_entry_next(&entry)) {
+         btree_entry_next(m, &entry)) {
         free(btree_entry_key(&entry));
         free(btree_entry_get(&entry));
     }
@@ -216,24 +217,16 @@ static inline
 void btree_reset(btree *m)
 {
     if (m->_root) {
-        free_node(m->_height - 1, m->_root);
+        free_node((HeightType)(m->_height - 1), m->_root);
     }
     btree_init(m);
 }
 
-/** Gets the number of elements. */
+/** Gets the number of elements.  This is an O(1) operation. */
 static inline
 size_t btree_len(const btree *m)
 {
     return m->_len;
-}
-
-/** Returns whether a entry refers to an existing element. */
-static inline
-int btree_entry_occupied(const btree *m, const btree_entry *ent)
-{
-    assert(ent->_depth <= m->_height);
-    return ent->_depth != m->_height;
 }
 
 static inline
@@ -302,6 +295,68 @@ btree_entry btree_find(btree *m, const K *key)
     return ent;
 }
 
+static inline
+void move_to_extremum(HeightType height,
+                      leaf_node *node,
+                      ChildIndexType which,
+                      HeightType *depth,
+                      ChildIndexType *istack,
+                      leaf_node **nodestack)
+{
+    HeightType h;
+    for (h = 0; ; ++h) {
+        ChildIndexType i = (ChildIndexType)(*leaf_len(node) * !!which);
+        if (which && h >= height - 1) {
+            --i;
+        }
+        istack[h] = i;
+        nodestack[h] = node;
+        if (h >= height - 1) {
+            break;
+        }
+        node = unsafe_leaf_children(node)[i];
+    }
+    *depth = (HeightType)(*depth + height - 1);
+}
+
+static inline
+btree_entry find_extremum(btree *m, ChildIndexType which)
+{
+    btree_entry ent;
+    HeightType height = m->_height;
+    assert(height <= MAX_HEIGHT);
+    ent._depth = 0;
+    if (height) {
+        move_to_extremum(height, m->_root, which, &ent._depth,
+                         ent._istack, ent._nodestack);
+    }
+    return ent;
+}
+
+/** Locates the first (least) entry.  If the B-tree is empty, a vacant entry
+    is returned. */
+static inline
+btree_entry btree_find_first(btree *m)
+{
+    return find_extremum(m, 0);
+}
+
+/** Locates the last (greatest) entry.  If the B-tree is empty, a vacant entry
+    is returned. */
+static inline
+btree_entry btree_find_last(btree *m)
+{
+    return find_extremum(m, 1);
+}
+
+/** Returns whether a entry refers to an existing element. */
+static inline
+int btree_entry_occupied(const btree *m, const btree_entry *ent)
+{
+    assert(ent->_depth <= m->_height); /* make sure it's valid */
+    return ent->_depth != m->_height;
+}
+
 /** Gets a pointer to the key at an occupied entry.  If the entry is not
     occupied, the behavior is undefined. */
 static inline
@@ -320,6 +375,76 @@ V *btree_entry_get(const btree_entry *ent)
     return
         leaf_values(ent->_nodestack[ent->_depth]) +
         ent->_istack[ent->_depth];
+}
+
+/** Modifies an occupied entry to refer to its next element.  If there are no
+    more elements, the next entry is vacant.  Otherwise, it is occupied.  The
+    argument `ent` must point to an occupied entry, or the behavior is
+    undefined.  Returns `1` if the new entry is occupied, `0` if the new entry
+    is vacant. */
+static inline
+int btree_entry_next(const btree *m, btree_entry *ent)
+{
+    HeightType height = m->_height;
+    assert(btree_entry_occupied(m, ent));
+    ++ent->_istack[ent->_depth];
+    if (ent->_depth < height - 1) {
+        ++ent->_depth;
+        move_to_extremum(
+            (HeightType)(height - ent->_depth),
+            unsafe_leaf_children(ent->_nodestack[ent->_depth - 1])
+                [ent->_istack[ent->_depth - 1]],
+            0,
+            &ent->_depth,
+            ent->_istack + ent->_depth,
+            ent->_nodestack + ent->_depth
+        );
+    } else {
+        assert(ent->_istack[ent->_depth] <=
+               *leaf_len(ent->_nodestack[ent->_depth]));
+        while (ent->_istack[ent->_depth] ==
+               *leaf_len(ent->_nodestack[ent->_depth])) {
+            if (!ent->_depth) {
+                ent->_depth = height;
+                return 0;
+            }
+            --ent->_depth;
+        }
+    }
+    return 1;
+}
+
+/** Modifies an occupied entry to refer to its previous element.  If there are
+    no more elements, the previous entry is vacant.  Otherwise, it is
+    occupied.  The argument `ent` must point to an occupied entry, or the
+    behavior is undefined. */
+static inline
+int btree_entry_prev(const btree *m, btree_entry *ent)
+{
+    HeightType height = m->_height;
+    assert(btree_entry_occupied(m, ent));
+    if (ent->_depth < height - 1) {
+        ++ent->_depth;
+        move_to_extremum(
+            (HeightType)(height - ent->_depth),
+            unsafe_leaf_children(ent->_nodestack[ent->_depth - 1])
+                [ent->_istack[ent->_depth - 1]],
+            1,
+            &ent->_depth,
+            ent->_istack + ent->_depth,
+            ent->_nodestack + ent->_depth
+        );
+    } else {
+        while (!ent->_istack[ent->_depth]) {
+            if (!ent->_depth) {
+                ent->_depth = height;
+                return 0;
+            }
+            --ent->_depth;
+        }
+        --ent->_istack[ent->_depth];
+    }
+    return 1;
 }
 
 static inline
@@ -397,7 +522,7 @@ void copy_elems(struct elem_ref dst, struct elem_ref src, size_t count)
 }
 
 static inline
-struct elem_ref offset_elem(struct elem_ref dst, size_t count)
+struct elem_ref offset_elem(struct elem_ref dst, ptrdiff_t count)
 {
     struct elem_ref r = {
         dst.key + count,
@@ -419,7 +544,8 @@ int insert_node_here(int is_branch,
     /* case A: enough room to do a simple insert */
     struct elem_ref elems = node_elems(is_branch, node);
     if (len < 2 * B - 1) {
-        copy_elems(offset_elem(elems, i + 1), offset_elem(elems, i), len - i);
+        copy_elems(offset_elem(elems, i + 1), offset_elem(elems, i),
+                   (size_t)(len - i));
         copy_elems(offset_elem(elems, i), elem, 1);
         ++*leaf_len(node);
         return 0;
@@ -441,7 +567,8 @@ int insert_node_here(int is_branch,
     }
     struct elem_ref newelems = node_elems(is_branch, newnode);
     size_t s = i > B ? i : B;
-    copy_elems(offset_elem(newelems, s - B), offset_elem(elems, s),
+    copy_elems(offset_elem(newelems, (ptrdiff_t)(s - B)),
+               offset_elem(elems, (ptrdiff_t)s),
                B * 2 - 1 - s);
     if (i == B) {
         if (is_branch) {
@@ -459,10 +586,11 @@ int insert_node_here(int is_branch,
         }
         if (i < B) {
             copy_elems(offset_elem(elems, i + 1), offset_elem(elems, i),
-                       B - 1 - i);
+                       (size_t)B - 1 - i);
             copy_elems(offset_elem(elems, i), elem, 1);
         } else {
-            copy_elems(newelems, offset_elem(elems, B + 1), i - B - 1);
+            copy_elems(newelems, offset_elem(elems, B + 1),
+                       i - (size_t)B - 1);
             copy_elems(offset_elem(newelems, i - B - 1), elem, 1);
         }
         *elem_out.key = midkey;
@@ -491,7 +619,7 @@ int insert_node(HeightType height,
         r = -1;
     } else {
         struct elem_ref elem = {(K *)key, (V *)value, NULL};
-        h = height - 1;
+        h = (HeightType)(height - 1);
         r = insert_node_here(0, ent._nodestack[h], ent._istack[h],
                              elem, newelem);
         while (h-- && r < -1) {
@@ -611,16 +739,17 @@ int steal_left(int is_branch,
 
     elems = node_elems(is_branch, node);
     leftelems = node_elems(is_branch, leftnode);
-    parentelem = parent_elem(is_branch, parentnode, previ - 1);
+    parentelem = parent_elem(is_branch, parentnode,
+                             (ChildIndexType)(previ - 1));
     len = *leaf_len(node);
-    lensum = leftlen + len - 1;
+    lensum = (ChildIndexType)(leftlen + len - 1);
     newlen = lensum / 2;
-    newleftlen = lensum - newlen;
-    dleftlen = leftlen - newleftlen;
+    newleftlen = (ChildIndexType)(lensum - newlen);
+    dleftlen = (ChildIndexType)(leftlen - newleftlen);
 
     copy_elems(offset_elem(elems, dleftlen + i),
                offset_elem(elems, i + 1),
-               len - i - 1);
+               (ChildIndexType)(len - i - 1));
     copy_elems(offset_elem(elems, dleftlen),
                elems,
                i);
@@ -629,7 +758,7 @@ int steal_left(int is_branch,
                1);
     copy_elems(elems,
                offset_elem(leftelems, newleftlen + 1),
-               dleftlen - 1);
+               (ChildIndexType)(dleftlen - 1));
     copy_elems(parentelem,
                offset_elem(leftelems, newleftlen),
                1);
@@ -673,20 +802,20 @@ int steal_right(int is_branch,
     rightelems = node_elems(is_branch, rightnode);
     parentelem = parent_elem(is_branch, parentnode, previ);
     len = *leaf_len(node);
-    lensum = rightlen + *leaf_len(node) - 1;
+    lensum = (ChildIndexType)(rightlen + *leaf_len(node) - 1);
     newlen = lensum / 2;
-    newrightlen = lensum - newlen;
-    drightlen = rightlen - newrightlen;
+    newrightlen = (ChildIndexType)(lensum - newlen);
+    drightlen = (ChildIndexType)(rightlen - newrightlen);
 
     copy_elems(offset_elem(elems, i),
                offset_elem(elems, i + 1),
-               len - 1 - i);
+               (ChildIndexType)(len - 1 - i));
     copy_elems(offset_elem(elems, len - 1),
                parentelem,
                1);
     copy_elems(offset_elem(elems, len),
                rightelems,
-               drightlen - 1);
+               (ChildIndexType)(drightlen - 1));
     copy_elems(parentelem,
                offset_elem(rightelems, drightlen - 1),
                1);
@@ -728,7 +857,8 @@ int merge_left(int is_branch,
     len = *leaf_len(node);
     elems = node_elems(is_branch, node);
     leftelems = node_elems(is_branch, leftnode);
-    parentelem = parent_elem(is_branch, parentnode, previ - 1);
+    parentelem = parent_elem(is_branch, parentnode,
+                             (ChildIndexType)(previ - 1));
 
     copy_elems(offset_elem(leftelems, leftlen),
                parentelem,
@@ -738,11 +868,11 @@ int merge_left(int is_branch,
                i);
     copy_elems(offset_elem(leftelems, leftlen + 1 + i),
                offset_elem(elems, i + 1),
-               len - i - 1);
+               (size_t)(len - i - 1));
 
     free(node);
-    *leaf_len(leftnode) = leftlen + len;
-    *oldindex = previ - 1;
+    *leaf_len(leftnode) = (ChildIndexType)(leftlen + len);
+    *oldindex = (ChildIndexType)(previ - 1);
     return 1;
 }
 
@@ -777,7 +907,7 @@ int merge_right(int is_branch,
 
     copy_elems(offset_elem(elems, i),
                offset_elem(elems, i + 1),
-               len - i - 1);
+               (size_t)(len - i - 1));
     copy_elems(offset_elem(elems, len - 1),
                parentelem,
                1);
@@ -786,7 +916,7 @@ int merge_right(int is_branch,
                rightlen);
 
     free(rightnode);
-    *leaf_len(node) = len + rightlen;
+    *leaf_len(node) = (ChildIndexType)(len + rightlen);
     *oldindex = previ;
     return 1;
 }
@@ -830,7 +960,7 @@ void btree_entry_remove(btree *m, btree_entry *ent)
         ChildIndexType loweri = ent->_istack[height - 1];
         *key = leaf_keys(lowernode)[loweri];
         leaf_values(uppernode)[upperi] = leaf_values(lowernode)[loweri];
-        depth = height - 1;
+        depth = (HeightType)(height - 1);
     }
 
     ChildIndexType i = ent->_istack[depth];
@@ -844,8 +974,8 @@ void btree_entry_remove(btree *m, btree_entry *ent)
             struct elem_ref elem = node_elems(is_branch, node);
             copy_elems(offset_elem(elem, i),
                        offset_elem(elem, i + 1),
-                       len - i - 1);
-            *leaf_len(node) = len - 1;
+                       (size_t)(len - i - 1));
+            *leaf_len(node) = (ChildIndexType)(len - 1);
             if (!depth && len == 1 && is_branch) {
                 /* root node is a branch and is about to become empty */
                 m->_root = unsafe_leaf_children(node)[0];
@@ -864,8 +994,8 @@ void btree_entry_remove(btree *m, btree_entry *ent)
             break;
         }
 
-        merge_left(is_branch, node, parentnode, i, previ, &i) ||
-        merge_right(is_branch, node, parentnode, i, previ, &i);
+        (void)(merge_left(is_branch, node, parentnode, i, previ, &i) ||
+               merge_right(is_branch, node, parentnode, i, previ, &i));
 
         --depth;
         node = branch_as_leaf(parentnode);
