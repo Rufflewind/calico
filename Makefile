@@ -1,15 +1,23 @@
 all: test
 
 build: src/btree.h src/btree_template.h
+	mkdir -p include/calico
+	cp -r \
+	   src/compat \
+	   src/btree_head.h \
+	   src/btree_template.h \
+	   src/macros.h \
+	   include/calico
 
 clean:
 	rm -f src/arithmetic.h src/btree.h src/btree_template.h
 
 doc: build
-	rm -r tmp/doc-src
-	mkdir tmp/doc-src
-	cp src/btree_impl.h tmp/doc-src/btree_template.h
-	doxygen
+	rm -fr tmp/doc-src
+	mkdir -p tmp/doc-src/calico
+	cp src/btree_impl.h tmp/doc-src/calico/btree_template.h
+	cp Doxyfile tmp/doc-src/Doxyfile
+	cd tmp/doc-src && doxygen
 
 test: build
 	$(CC) -g -Wall -Wextra -Wconversion -pedantic -std=gnu11 $(ARGS) src/btree_test.c && valgrind $(VALGRINDFLAGS) ./a.out

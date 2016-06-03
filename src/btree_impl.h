@@ -2,6 +2,63 @@
 
 Associative arrays implemented using B-trees.
 
+This is a template header.  All identifiers in this are prefixed with an
+arbitrary prefix provided by the user.  Before including this header,
+`<calico/btree_head.h>` must be included as well.
+
+The main parameters are:
+
+  - `K`: key type
+  - `V`: value type
+  - `CompareFunction`: function used to compare keys
+    (default: `cal_pcmp`, type: `int (*)(const K *, const K *))`)
+
+Some other parameters useful for tuning performance are:
+
+  - `B`: number of children per node (default: 8, minimum: 2)
+  - `SearchFunction`: function used search for a key in a node
+     (default: `linear_sorted_search`)
+  - `ChildIndexType`: type used to store indices of child nodes
+    (default: `unsigned short`)
+  - `HeightType`: type used to store the height of the tree
+    (default: `unsigned char`)
+
+Here's an example:
+
+~~~c
+#include <string.h>
+#include <calico/btree_head.h>
+
+#define Prefix id
+#define K int
+#define V double
+#include <calico/btree_template.h>
+
+#define Prefix si
+#define K const char *
+#define V int
+#define CompareFunction strcmp
+#include <calico/btree_template.h>
+
+int main(void)
+{
+    int i = 42;
+    double d = 1.5;
+    id_btree t1;
+    si_btree t2;
+
+    id_btree_init(&t1);
+    id_btree_insert(&t2, &i, &d);
+    id_btree_reset(&t1);
+
+    si_btree_init(&t2);
+    si_btree_insert(&t2, &"hello", &i);
+    si_btree_reset(&t2);
+
+    return 0;
+}
+~~~
+
 */
 
 typedef struct {
@@ -48,7 +105,8 @@ static_assert(B >= 2, "B must be at least 2");
 
 /** Refers to a specific location in a B-tree.  If the entry is vacant, then
     an element may be inserted at the location.  If the entry is occupied,
-    then its value may be read, or the element may be removed entirely. */
+    then its value may be read or modified, or the element may be removed
+    entirely. */
 typedef struct {
     leaf_node *_nodestack[MAX_HEIGHT];
     ChildIndexType _istack[MAX_HEIGHT];
@@ -358,7 +416,16 @@ int btree_entry_occupied(const btree *m, const btree_entry *ent)
 }
 
 /** Gets a pointer to the key at an occupied entry.  If the entry is not
-    occupied, the behavior is undefined. */
+    occupied, the behavior is undefined.
+
+    @note The key can be modified as long as it remains semantically equal to
+    its original value.  Otherwise, if the key is modified to a different
+    value, or otherwise made impossible to compare (e.g. by deallocating
+    string keys), then any operation that involves key comparison will cause
+    undefined behavior.  These operations include `btree_get`,
+    `btree_get_const`, `btree_insert`, and `btree_remove`.  It remains safe to
+    call `btree_len`, `btree_reset`, or the `btree_entry`-related
+    functions.  */
 static inline
 K *btree_entry_key(const btree_entry *ent)
 {
