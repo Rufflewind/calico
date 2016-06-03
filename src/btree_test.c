@@ -112,18 +112,33 @@ void test_random(zd_btree *t,
         zd_btree_get(t, &k);
     }
     size_t l = zd_btree_len(t);
+
+    key_type *keys = (size_t *)malloc(l * sizeof(*keys));
     long prev_key = -1;
     for (zd_btree_entry entry = zd_btree_find_first(t);
          zd_btree_entry_occupied(t, &entry);
          zd_btree_entry_next(t, &entry)) {
-        long key = (long)*zd_btree_entry_key(&entry);
+        key_type key = *zd_btree_entry_key(&entry);
         value_type value = *zd_btree_entry_get(&entry);
-        assert(prev_key < key);
-        prev_key = key;
+        assert(prev_key < (long)key);
+        prev_key = (long)key;
         assert(range - key == value);
         --l;
+        keys[l] = key;
     }
     assert(l == 0);
+    for (zd_btree_entry entry = zd_btree_find_last(t);
+         zd_btree_entry_occupied(t, &entry);
+         zd_btree_entry_prev(t, &entry)) {
+        key_type key = *zd_btree_entry_key(&entry);
+        value_type value = *zd_btree_entry_get(&entry);
+        assert(keys[l] == key);
+        assert(range - key == value);
+        ++l;
+    }
+    assert(l == zd_btree_len(t));
+    free(keys);
+
     unsigned ri = 0;
     while (zd_btree_len(t)) {
         size_t k = (unsigned)rand() % range;
