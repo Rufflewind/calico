@@ -413,6 +413,7 @@ int btree_entry_occupied(const btree *m, const btree_entry *ent)
     - `btree_get_const`
     - `btree_insert`
     - `btree_remove`
+    - `btree_xinsert`
 
 */
 static inline
@@ -660,6 +661,9 @@ int insert_node_here(int is_branch,
 /** Inserts an element into the `btree` at a vacant entry.  If the entry is
     not vacant, the behavior is undefined.
 
+    If the insert is successful, the entry is invalidated and `0` is returned.
+    On error, a positive integer is returned.
+
     @note The `key` must match the original key used to obtain the vacant
     entry, or the behavior is undefined. */
 static inline
@@ -726,26 +730,69 @@ int btree_entry_insert(btree *m, btree_entry *entry,
     return 0;
 }
 
+/** Similar to `#btree_entry_insert` but aborts on error. */
+static inline
+void btree_entry_xinsert(btree *m, btree_entry *entry,
+                        const K *key, const V *value)
+{
+    if (btree_entry_insert(m, entry, key, value)) {
+        fprintf(stderr, "%s:%lu:btree_entry_xinsert: Out of memory\n",
+                __FILE__, (unsigned long)__LINE__);
+        fflush(stderr);
+        abort();
+    }
+}
+
 /** Inserts an element into the `btree`.  If an element with the same `key`
     already exists, its value is replaced (the key remains unchanged,
-    however).
+    however) and the old value is stored at `value_out`.
+
+    `value` and `value_out` are permitted to alias each other.
+
+    If the element was added without replacing an existing element, `0` is
+    returned.  If an existing element was replaced, `1` is returned.  If an
+    error occurs, a negative value is returned.
 
     @note If the existing value that is replaced is associated with some
-    resources, they will not be released.
+    resources, they will not be released.  In this case, to avoid this issue
+    the result stored in `value_out` should be freed if an existing value was
+    replaced.  For example,
+    ~~~c
+    if (btree_xinsert(m, key, value, &old_value)) {
+        free(old_value);
+    }
+    ~~~
 
-    @todo Add an argument to retrieve the old value (maybe call it
-    `insert_swap`?).
  */
 static inline
-int btree_insert(btree *m, const K *key, const V *value)
+int btree_insert(btree *m, const K *key, const V *value, V *value_out)
 {
     btree_entry ent;
     btree_find(m, key, &ent);
     if (btree_entry_occupied(m, &ent)) {
-        *btree_entry_get(&ent) = *value;
-        return 0;
+        V *poldvalue = btree_entry_get(&ent);
+        V oldvalue = *poldvalue;
+        *poldvalue = *value;
+        if (value_out) {
+            *value_out = oldvalue;
+        }
+        return 1;
     }
-    return btree_entry_insert(m, &ent, key, value);
+    return -btree_entry_insert(m, &ent, key, value);
+}
+
+/** Similar to `#btree_insert` but aborts if an error occurs. */
+static inline
+int btree_xinsert(btree *m, const K *key, const V *value, V *value_out)
+{
+    int r = btree_insert(m, key, value, value_out);
+    if (r < 0) {
+        fprintf(stderr, "%s:%lu:btree_xinsert: Out of memory\n",
+                __FILE__, (unsigned long)__LINE__);
+        fflush(stderr);
+        abort();
+    }
+    return r;
 }
 
 /* to get the left parent, use index = i - 1;
@@ -976,8 +1023,8 @@ int merge_right(int is_branch,
     return 1;
 }
 
-/** Removes the element at an occupied entry.  The entry is destroyed in the
-    process.  If the entry is not occupied, the behavior is undefined. */
+/** Removes the element at an occupied entry.  The entry is invalidated
+    afterwards.  If the entry is not occupied, the behavior is undefined. */
 static inline
 void btree_entry_remove(btree *m, btree_entry *ent)
 {

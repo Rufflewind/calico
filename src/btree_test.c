@@ -111,9 +111,9 @@ void test_random(zd_btree *t,
     for (i = 0; i < count; ++i) {
         size_t k = (unsigned)rand() % range;
         double v = (double)(range - k);
-        int r = zd_btree_insert(t, &k, &v);
+        int r = zd_btree_insert(t, &k, &v, NULL);
         value_type *v2;
-        assert(!r);
+        assert(r >= 0);
         v2 = zd_btree_get(t, &k);
         assert(v2);
         assert(*v2 == v);
@@ -175,7 +175,7 @@ void bench_random(zd_btree *t,
 #ifdef BASE
             dummyu((unsigned)k);
 #else
-            dummyu((unsigned)zd_btree_insert(t, &k, &v));
+            dummyu((unsigned)zd_btree_insert(t, &k, &v, NULL));
 #endif
         }
     }
