@@ -1,4 +1,19 @@
 #include <stddef.h>
+
+#include "wclock.h"
+static wclock clk;
+#ifdef BENCH
+static int timing_counter;
+static double clk_time;
+#define TIME(name)                                                      \
+    for (clk_time = get_wclock(&clk), timing_counter = 0;               \
+         !timing_counter;                                               \
+         ++timing_counter,                                              \
+         printf("time_%s=%.6g\n", name, get_wclock(&clk) - clk_time))
+#else
+#define TIME(name)
+#endif
+
 #ifndef B
 #define B 8
 #endif
@@ -10,23 +25,27 @@
 typedef size_t key_type;
 typedef double value_type;
 
-// #include "btree.h"
-// cal_def_btree(zd, B, key_type, value_type, 1, cal_pcmp,
-//               SearchFunction, unsigned short, unsigned char, inline)
-
+#if 0
+#include "btree.h"
+cal_def_btree(zd, B, key_type, value_type, 1, cal_pcmp,
+              SearchFunction, unsigned short, unsigned char, inline)
+#else
 #include "btree_head.h"
 #define Prefix zd
 #define K key_type
 #define V value_type
 #include "btree_template.h"
+#endif
 
-static inline
+#include "compat/inline_begin.h"
+
+static
 void dump_kv(const key_type *key, const value_type *value)
 {
     printf("\033[37m%03zu\033[32m,%03.0f\033[0m\n", *key, *value);
 }
 
-static inline
+static
 void dump_node(size_t indent, unsigned char height, zdpriv_btree_leaf_node *m)
 {
     static const char *indent_str = "  ";
@@ -70,20 +89,6 @@ void dump_btree(zd_btree *m)
     printf("----------------------------------------\n");
 }
 
-#include "wclock.h"
-static wclock clk;
-#ifdef BENCH
-static int timing_counter;
-static double clk_time;
-#define TIME(name)                                                      \
-    for (clk_time = get_wclock(&clk), timing_counter = 0;               \
-         !timing_counter;                                               \
-         ++timing_counter,                                              \
-         printf("time_%s=%.6g\n", name, get_wclock(&clk) - clk_time))
-#else
-#define TIME(name)
-#endif
-
 #ifdef BENCH
 void dummy(void *);
 void dummyu(unsigned);
@@ -96,26 +101,31 @@ void test_random(zd_btree *t,
                  unsigned range,
                  unsigned count)
 {
+    unsigned i, ri;
+    size_t l;
+    key_type *keys;
+    long prev_key;
+    zd_btree_entry entry;
+
     srand(seed);
-    for (unsigned i = 0; i < count; ++i) {
+    for (i = 0; i < count; ++i) {
         size_t k = (unsigned)rand() % range;
         double v = (double)(range - k);
         int r = zd_btree_insert(t, &k, &v);
-        (void)r;
+        value_type *v2;
         assert(!r);
-        value_type *v2 = zd_btree_get(t, &k);
+        v2 = zd_btree_get(t, &k);
         assert(v2);
         assert(*v2 == v);
     }
-    for (unsigned i = 0; i < count; ++i) {
+    for (i = 0; i < count; ++i) {
         size_t k = (unsigned)rand() % range;
         zd_btree_get(t, &k);
     }
-    size_t l = zd_btree_len(t);
+    l = zd_btree_len(t);
 
-    key_type *keys = (size_t *)malloc(l * sizeof(*keys));
-    long prev_key = -1;
-    zd_btree_entry entry;
+    keys = (size_t *)malloc(l * sizeof(*keys));
+    prev_key = -1;
     for (zd_btree_find_first(t, &entry);
          zd_btree_entry_occupied(t, &entry);
          zd_btree_entry_next(t, &entry)) {
@@ -140,7 +150,7 @@ void test_random(zd_btree *t,
     assert(l == zd_btree_len(t));
     free(keys);
 
-    unsigned ri = 0;
+    ri = 0;
     while (zd_btree_len(t)) {
         size_t k = (unsigned)rand() % range;
         zd_btree_remove(t, &k, NULL, NULL);
@@ -155,10 +165,11 @@ void bench_random(zd_btree *t,
                   unsigned count)
 {
     char name[512];
+    unsigned i;
     srand(seed);
     snprintf(name, sizeof(name), "random_inserts_%u_%u", range, count);
     TIME(name) {
-        for (unsigned i = 0; i < count; ++i) {
+        for (i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % range;
             double v = (double)((unsigned)rand() % range);
 #ifdef BASE
@@ -170,7 +181,7 @@ void bench_random(zd_btree *t,
     }
     snprintf(name, sizeof(name), "random_lookups_%u_%u", range, count);
     TIME(name) {
-        for (unsigned i = 0; i < count; ++i) {
+        for (i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % range;
 #ifdef BASE
             dummyu((unsigned)k);

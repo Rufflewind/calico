@@ -72,6 +72,11 @@
      (x) >= 2 ? 1 :                             \
      0)
 
+/** A macro that expands to nothing.  Useful if you want to pass nothing to
+    the argument of a function-like macro, since they are forbidden in older
+    versions of C and C++. */
+#define CAL_NOARG
+
 /** @def CAL_WARNUNUSED
     If available, expand to a built-in function attribute that warns if the
     function is called without using its result. */

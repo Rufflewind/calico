@@ -67,6 +67,8 @@ double get_wclock(const wclock *wclock);
 static
 double get_wclock_res(const wclock *wclock);
 
+#include "compat/inline_begin.h"
+
 inline
 int init_wclock(wclock *self)
 {
@@ -123,6 +125,8 @@ double get_wclock_res(const wclock *self)
     return (double)t.tv_sec + (double)t.tv_nsec * 1e-9;
 #endif
 }
+
+#include "compat/inline_end.h"
 
 #ifdef __cplusplus
 }

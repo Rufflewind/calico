@@ -20,7 +20,7 @@ doc: build
 	cd tmp/doc-src && doxygen
 
 test: build
-	$(CC) -g -Wall -Wextra -Wconversion -pedantic -std=gnu11 $(ARGS) src/btree_test.c && valgrind $(VALGRINDFLAGS) ./a.out
+	$(CC) -g -Wall -Wextra -Wconversion -pedantic -std=gnu11 -D_POSIX_C_SOURCE=199309L $(CPPFLAGS) $(CFLAGS) src/btree_test.c && valgrind $(VALGRINDFLAGS) ./a.out
 
 .PHONY: all build clean doc test
 
