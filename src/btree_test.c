@@ -14,8 +14,8 @@ static double clk_time;
 #define TIME(name)
 #endif
 
-#ifndef B
-#define B 8
+#ifndef MinArity
+#define MinArity 8
 #endif
 #ifndef SearchFunction
 #define SearchFunction linear_ordered_search
@@ -27,13 +27,13 @@ typedef double value_type;
 
 #if 0
 #include "btree.h"
-cal_def_btree(zd, B, key_type, value_type, 1, cal_pcmp,
+cal_def_btree(zd, MinArity, key_type, value_type, 1, cal_pcmp,
               SearchFunction, unsigned short, unsigned char, inline)
 #else
 #include "btree_head.h"
 #define Prefix zd
-#define K key_type
-#define V value_type
+#define KeyType key_type
+#define ValueType value_type
 #include "btree_template.h"
 #endif
 

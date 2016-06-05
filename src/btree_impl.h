@@ -8,14 +8,14 @@ arbitrary prefix provided by the user.  Before including this header,
 
 The main parameters are:
 
-  - `K`: key type
-  - `V`: value type
+  - `KeyType`: key type
+  - `ValueType`: value type
   - `CompareFunction`: function used to compare keys
-    (default: `cal_pcmp`, type: `int (*)(const K *, const K *))`)
+    (default: `cal_pcmp`, type: `int (*)(const KeyType *, const KeyType *))`)
 
 Some other parameters useful for tuning performance are:
 
-  - `B`: number of children per node (default: 8, minimum: 2)
+  - `MinArity`: number of children per node (default: 8, minimum: 2)
   - `SearchFunction`: function used search for a key in a node
      (default: `linear_sorted_search`)
   - `ChildIndexType`: type used to store indices of child nodes
@@ -30,13 +30,13 @@ Here's an example:
 #include <calico/btree_head.h>
 
 #define Prefix id
-#define K int
-#define V double
+#define KeyType int
+#define ValueType double
 #include <calico/btree_template.h>
 
 #define Prefix si
-#define K const char *
-#define V int
+#define KeyType const char *
+#define ValueType int
 #define CompareFunction strcmp
 #include <calico/btree_template.h>
 
@@ -63,13 +63,13 @@ int main(void)
 
 typedef struct {
     /* an array of keys, with [0, _len) valid */
-    K _keys[2 * B - 1];
+    KeyType _keys[2 * MinArity - 1];
 cal_cond(HasValue)(
     /* an array of values, with [0, _len) valid */
-    V _values[2 * B - 1];
+    ValueType _values[2 * MinArity - 1];
 , CAL_NOARG)
     /* the number of valid keys (or number of valid values),
-       ranging from 0 to 2 * B - 1 */
+       ranging from 0 to 2 * MinArity - 1 */
     ChildIndexType _len;
 cal_cond_ndebug(CAL_NOARG,
     /* when assertions are enabled, track whether it's a branch or leaf to
@@ -82,7 +82,7 @@ typedef struct {
     /* we use `leaf_node` as a "base type" */
     leaf_node _data;
     /* child nodes, with [0, _data._len] valid */
-    leaf_node *_children[2 * B];
+    leaf_node *_children[2 * MinArity];
 } branch_node;
 
 /** An associative array data structure backed by a B-tree. */
@@ -92,16 +92,16 @@ typedef struct {
     HeightType _height;
 } btree;
 
-/* log2(UINTPTR_MAX / sizeof(leaf_node)) / log2(B) + 1 */
+/* log2(UINTPTR_MAX / sizeof(leaf_node)) / log2(MinArity) + 1 */
 enum {
     MAX_HEIGHT =
         (CHAR_BIT * sizeof(void *) - cal_minlog2(sizeof(leaf_node)))
-        / cal_minlog2(B) + 1
+        / cal_minlog2(MinArity) + 1
 };
 
 static_assert((HeightType)MAX_HEIGHT == MAX_HEIGHT, "height is too big");
-static_assert((ChildIndexType)B == B, "B is too big");
-static_assert(B >= 2, "B must be at least 2");
+static_assert((ChildIndexType)MinArity == MinArity, "MinArity is too big");
+static_assert(MinArity >= 2, "MinArity must be at least 2");
 
 /** Refers to a specific location in a B-tree.  If the entry is vacant, then
     an element may be inserted at the location.  If the entry is occupied,
@@ -115,9 +115,9 @@ typedef struct {
 
 /* A simple container used for readability purposes */
 struct elem_ref {
-    K *key;
+    KeyType *key;
 cal_cond(HasValue)(
-    V *value;
+    ValueType *value;
 , CAL_NOARG)
     leaf_node **child; /* right child */
 };
@@ -140,13 +140,13 @@ ChildIndexType *leaf_len(leaf_node *m)
 }
 
 static inline
-K *leaf_keys(leaf_node *m)
+KeyType *leaf_keys(leaf_node *m)
 {
     return m->_keys;
 }
 
 static inline
-V *leaf_values(leaf_node *m)
+ValueType *leaf_values(leaf_node *m)
 {
     return cal_cond(HasValue)(m->_values, leaf_keys(m));
 }
@@ -181,13 +181,13 @@ ChildIndexType *branch_len(branch_node *m)
 }
 
 static inline
-K *branch_keys(branch_node *m)
+KeyType *branch_keys(branch_node *m)
 {
     return leaf_keys(branch_as_leaf(m));
 }
 
 static inline
-V *branch_values(branch_node *m)
+ValueType *branch_values(branch_node *m)
 {
     leaf_node *ml = branch_as_leaf(m);
     return cal_cond(HasValue)(leaf_values, leaf_keys)(ml);
@@ -290,7 +290,7 @@ static inline
 int generic_compare(void *ctx, const void *x, const void *y)
 {
     (void)ctx;
-    return CompareFunction((const K *)x, (const K *)y);
+    return CompareFunction((const KeyType *)x, (const KeyType *)y);
 }
 
 static inline
@@ -298,7 +298,7 @@ leaf_node *lookup_iter(ChildIndexType *i_out,
                        leaf_node *node,
                        HeightType *h,
                        HeightType height,
-                       const K *key)
+                       const KeyType *key)
 {
     size_t i;
     int r;
@@ -320,7 +320,7 @@ leaf_node *lookup_iter(ChildIndexType *i_out,
 /** Searches for the given `key`.  The entry returned can be either occupied
     or vacant, which indicates whether the `key` was found. */
 static inline
-void btree_find(btree *m, const K *key, btree_entry *entry_out)
+void btree_find(btree *m, const KeyType *key, btree_entry *entry_out)
 {
     HeightType height = m->_height;
     assert(key);
@@ -417,7 +417,7 @@ int btree_entry_occupied(const btree *m, const btree_entry *ent)
 
 */
 static inline
-K *btree_entry_key(const btree_entry *ent)
+KeyType *btree_entry_key(const btree_entry *ent)
 {
     return
         leaf_keys(ent->_nodestack[ent->_depth]) +
@@ -427,7 +427,7 @@ K *btree_entry_key(const btree_entry *ent)
 /** Gets a pointer to the value at an occupied entry.  If the entry is not
     occupied, the behavior is undefined. */
 static inline
-V *btree_entry_get(const btree_entry *ent)
+ValueType *btree_entry_get(const btree_entry *ent)
 {
     return
         leaf_values(ent->_nodestack[ent->_depth]) +
@@ -507,7 +507,7 @@ int btree_entry_prev(const btree *m, btree_entry *ent)
 static inline
 leaf_node *find_node(HeightType height,
                      leaf_node *node,
-                     const K *key,
+                     const KeyType *key,
                      ChildIndexType *index)
 {
     ChildIndexType i;
@@ -525,7 +525,7 @@ leaf_node *find_node(HeightType height,
 
 /* Return the node and the position within that node. */
 static inline
-leaf_node *get_node(btree *m, const K *key, ChildIndexType *index)
+leaf_node *get_node(btree *m, const KeyType *key, ChildIndexType *index)
 {
     if (!m->_root) {
         assert(m->_height == 0);
@@ -538,7 +538,7 @@ leaf_node *get_node(btree *m, const K *key, ChildIndexType *index)
 /** Retrieves the value with the given key.  Returns `NULL` if it is not
     found. */
 static inline
-V *btree_get(btree *m, const K *k)
+ValueType *btree_get(btree *m, const KeyType *k)
 {
     ChildIndexType i;
     leaf_node *n;
@@ -552,14 +552,14 @@ V *btree_get(btree *m, const K *k)
 /** Retrieves the value with the given key.  Returns `NULL` if it is not
     found. */
 static inline
-const V *btree_get_const(const btree *m, const K *k)
+const ValueType *btree_get_const(const btree *m, const KeyType *k)
 {
     return btree_get((btree *)m, k);
 }
 
 /** Returns whether the the given key exists in the `btree`. */
 static inline
-int btree_contains_key(const btree *m, const K *k)
+int btree_contains_key(const btree *m, const KeyType *k)
 {
     ChildIndexType i;
     return !!get_node((btree *)m, k, &i);
@@ -602,7 +602,7 @@ int insert_node_here(int is_branch,
 
     /* case A: enough room to do a simple insert */
     struct elem_ref elems = node_elems(is_branch, node);
-    if (len < 2 * B - 1) {
+    if (len < 2 * MinArity - 1) {
         copy_elems(offset_elem(elems, i + 1), offset_elem(elems, i),
                    (size_t)(len - i));
         copy_elems(offset_elem(elems, i), elem, 1);
@@ -611,7 +611,7 @@ int insert_node_here(int is_branch,
     }
 
     /* case B: not enough room; need to split node */
-    assert(len == 2 * B - 1);
+    assert(len == 2 * MinArity - 1);
     newnode = is_branch ? branch_as_leaf(alloc_branch()) : alloc_leaf();
     if (!newnode) {
         /* FIXME: we should return 1 instead of failing, but we'd need to
@@ -622,38 +622,38 @@ int insert_node_here(int is_branch,
         abort();
     }
     newelems = node_elems(is_branch, newnode);
-    s = i > B ? i : B;
-    copy_elems(offset_elem(newelems, (ptrdiff_t)(s - B)),
+    s = i > MinArity ? i : MinArity;
+    copy_elems(offset_elem(newelems, (ptrdiff_t)(s - MinArity)),
                offset_elem(elems, (ptrdiff_t)s),
-               B * 2 - 1 - s);
-    if (i == B) {
+               MinArity * 2 - 1 - s);
+    if (i == MinArity) {
         if (is_branch) {
             unsafe_leaf_children(newnode)[0] = *elem.child;
         }
         *elem_out.key = *elem.key;
         *elem_out.value = *elem.value;
     } else {
-        ChildIndexType mid = i < B ? B - 1 : B;
-        K midkey = leaf_keys(node)[mid];
-        V midvalue = leaf_values(node)[mid];
+        ChildIndexType mid = i < MinArity ? MinArity - 1 : MinArity;
+        KeyType midkey = leaf_keys(node)[mid];
+        ValueType midvalue = leaf_values(node)[mid];
         if (is_branch) {
             unsafe_leaf_children(newnode)[0] =
                 unsafe_leaf_children(node)[mid + 1];
         }
-        if (i < B) {
+        if (i < MinArity) {
             copy_elems(offset_elem(elems, i + 1), offset_elem(elems, i),
-                       (size_t)B - 1 - i);
+                       (size_t)MinArity - 1 - i);
             copy_elems(offset_elem(elems, i), elem, 1);
         } else {
-            copy_elems(newelems, offset_elem(elems, B + 1),
-                       i - (size_t)B - 1);
-            copy_elems(offset_elem(newelems, i - B - 1), elem, 1);
+            copy_elems(newelems, offset_elem(elems, MinArity + 1),
+                       i - (size_t)MinArity - 1);
+            copy_elems(offset_elem(newelems, i - MinArity - 1), elem, 1);
         }
         *elem_out.key = midkey;
         *elem_out.value = midvalue;
     }
-    *leaf_len(node) = B;
-    *leaf_len(newnode) = B - 1;
+    *leaf_len(node) = MinArity;
+    *leaf_len(newnode) = MinArity - 1;
     *elem_out.child = newnode;
     return -2;
 }
@@ -668,10 +668,10 @@ int insert_node_here(int is_branch,
     entry, or the behavior is undefined. */
 static inline
 int btree_entry_insert(btree *m, btree_entry *entry,
-                       const K *key, const V *value)
+                       const KeyType *key, const ValueType *value)
 {
-    K newkey;
-    V newvalue;
+    KeyType newkey;
+    ValueType newvalue;
     leaf_node *newchild;
     struct elem_ref newelem;
     struct elem_ref elem;
@@ -694,8 +694,8 @@ int btree_entry_insert(btree *m, btree_entry *entry,
     newelem.key = &newkey;
     newelem.value = &newvalue;
     newelem.child = &newchild;
-    elem.key = (K *)key;
-    elem.value = (V *)value;
+    elem.key = (KeyType *)key;
+    elem.value = (ValueType *)value;
     elem.child = NULL;
     h = (HeightType)(height - 1);
     r = insert_node_here(0, entry->_nodestack[h], entry->_istack[h],
@@ -733,7 +733,7 @@ int btree_entry_insert(btree *m, btree_entry *entry,
 /** Similar to `#btree_entry_insert` but aborts on error. */
 static inline
 void btree_entry_xinsert(btree *m, btree_entry *entry,
-                        const K *key, const V *value)
+                        const KeyType *key, const ValueType *value)
 {
     if (btree_entry_insert(m, entry, key, value)) {
         fprintf(stderr, "%s:%lu:btree_entry_xinsert: Out of memory\n",
@@ -765,13 +765,16 @@ void btree_entry_xinsert(btree *m, btree_entry *entry,
 
  */
 static inline
-int btree_insert(btree *m, const K *key, const V *value, V *value_out)
+int btree_insert(btree *m,
+                 const KeyType *key,
+                 const ValueType *value,
+                 ValueType *value_out)
 {
     btree_entry ent;
     btree_find(m, key, &ent);
     if (btree_entry_occupied(m, &ent)) {
-        V *poldvalue = btree_entry_get(&ent);
-        V oldvalue = *poldvalue;
+        ValueType *poldvalue = btree_entry_get(&ent);
+        ValueType oldvalue = *poldvalue;
         *poldvalue = *value;
         if (value_out) {
             *value_out = oldvalue;
@@ -783,7 +786,10 @@ int btree_insert(btree *m, const K *key, const V *value, V *value_out)
 
 /** Similar to `#btree_insert` but aborts if an error occurs. */
 static inline
-int btree_xinsert(btree *m, const K *key, const V *value, V *value_out)
+int btree_xinsert(btree *m,
+                  const KeyType *key,
+                  const ValueType *value,
+                  ValueType *value_out)
 {
     int r = btree_insert(m, key, value, value_out);
     if (r < 0) {
@@ -834,7 +840,7 @@ int steal_left(int is_branch,
     leftnode = branch_children(parentnode)[previ - 1];
     leftlen = *leaf_len(leftnode);
 
-    if (leftlen < B) {
+    if (leftlen < MinArity) {
         /* left neighbor doesn't have enough elements to steal */
         return 0;
     }
@@ -895,7 +901,7 @@ int steal_right(int is_branch,
     rightnode = branch_children(parentnode)[previ + 1];
     rightlen = *leaf_len(rightnode);
 
-    if (rightlen < B) {
+    if (rightlen < MinArity) {
         /* right neighbor doesn't have enough elements to steal */
         return 0;
     }
@@ -954,7 +960,7 @@ int merge_left(int is_branch,
     leftlen = *leaf_len(leftnode);
 
     /* left neighbor must not have too many elements */
-    assert(leftlen == B - 1);
+    assert(leftlen == MinArity - 1);
 
     len = *leaf_len(node);
     elems = node_elems(is_branch, node);
@@ -1000,7 +1006,7 @@ int merge_right(int is_branch,
     rightlen = *leaf_len(rightnode);
 
     /* right neighbor must not have too many elements */
-    assert(rightlen == B - 1);
+    assert(rightlen == MinArity - 1);
 
     len = *leaf_len(node);
     elems = node_elems(is_branch, node);
@@ -1048,7 +1054,7 @@ void btree_entry_remove(btree *m, btree_entry *ent)
         leaf_node *node, *lowernode, *uppernode;
         ChildIndexType i, loweri, upperi;
         HeightType h = (HeightType)(depth + 1);
-        K *key;
+        KeyType *key;
         uppernode = ent->_nodestack[depth];
         upperi = ent->_istack[depth];
         key = &leaf_keys(uppernode)[upperi];
@@ -1076,7 +1082,7 @@ void btree_entry_remove(btree *m, btree_entry *ent)
         branch_node *parentnode;
 
         /* easy case: no underflow (or is root node) */
-        if (len >= B || !depth) {
+        if (len >= MinArity || !depth) {
             struct elem_ref elem = node_elems(is_branch, node);
             copy_elems(offset_elem(elem, i),
                        offset_elem(elem, i + 1),
@@ -1095,7 +1101,7 @@ void btree_entry_remove(btree *m, btree_entry *ent)
         previ = ent->_istack[depth - 1];
 
         /*
-          There are several ways to fix an underflow (l_self < B - 1):
+          There are several ways to fix an underflow (l_self < MinArity - 1):
 
           - Stealing elements from adjacent nodes
           - Merging with an adjacent node
@@ -1140,7 +1146,7 @@ void btree_entry_remove(btree *m, btree_entry *ent)
 
 */
 static inline
-int btree_remove(btree *m, const K *key, K *key_out, V *value_out)
+int btree_remove(btree *m, const KeyType *key, KeyType *key_out, ValueType *value_out)
 {
     btree_entry ent;
     btree_find(m, key, &ent);

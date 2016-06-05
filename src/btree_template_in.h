@@ -1,7 +1,7 @@
 #include "compat/inline_begin.h"
 #include "compat/static_assert_begin.h"
 #ifndef HasValue
-#ifdef V
+#ifdef ValueType
 #define HasValue 1
 #else
 #define HasValue 0
@@ -14,11 +14,11 @@ make_template(
     exclude_pattern=r"cal_.*|static_assert",
     private_subprefix="priv_btree",
     params=[
-        "B=8",
-        "K",
-        "V=void",
+        "KeyType",
+        "ValueType=void",
         "CompareFunction=cal_pcmp",
         "SearchFunction=linear_ordered_search",
+        "MinArity=8",
         "ChildIndexType=unsigned short",
         "HeightType=unsigned char",
     ],
