@@ -5,13 +5,14 @@ static wclock clk;
 #ifdef BENCH
 static int timing_counter;
 static double clk_time;
-#define TIME(name)                                                      \
+#define TIME(name, repeats)                                             \
     for (clk_time = get_wclock(&clk), timing_counter = 0;               \
          !timing_counter;                                               \
          ++timing_counter,                                              \
-         printf("time_%s=%.6g\n", name, get_wclock(&clk) - clk_time))
+         printf("time_%s=%.6g\n", name,                                 \
+                (get_wclock(&clk) - clk_time) / repeats))
 #else
-#define TIME(name)
+#define TIME(name, repeats)
 #endif
 
 #ifndef MinArity
@@ -36,6 +37,17 @@ cal_def_btree(zd, MinArity, key_type, value_type, 1, cal_pcmp,
 #define ValueType value_type
 #include "btree_template.h"
 #endif
+
+#include "btree_head.h"
+#define Prefix zz
+#define KeyType size_t
+#define ValueType size_t
+#include "btree_template.h"
+
+#include "btree_head.h"
+#define Prefix z
+#define KeyType size_t
+#include "btree_template.h"
 
 #include "compat/inline_begin.h"
 
@@ -168,7 +180,7 @@ void bench_random(zd_btree *t,
     unsigned i;
     srand(seed);
     snprintf(name, sizeof(name), "random_inserts_%u_%u", range, count);
-    TIME(name) {
+    TIME(name, 1) {
         for (i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % range;
             double v = (double)((unsigned)rand() % range);
@@ -180,7 +192,7 @@ void bench_random(zd_btree *t,
         }
     }
     snprintf(name, sizeof(name), "random_lookups_%u_%u", range, count);
-    TIME(name) {
+    TIME(name, 1) {
         for (i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % range;
 #ifdef BASE
@@ -193,7 +205,7 @@ void bench_random(zd_btree *t,
     printf("len_%u_%u=%zu\n", range, count, zd_btree_len(t));
     snprintf(name, sizeof(name), "sequential_lookups_%u_%u", range, count);
     zd_btree_entry entry;
-    TIME(name) {
+    TIME(name, 1) {
         for (zd_btree_find_first(t, &entry);
              zd_btree_entry_occupied(t, &entry);
              zd_btree_entry_next(t, &entry)) {
@@ -203,7 +215,7 @@ void bench_random(zd_btree *t,
     }
     snprintf(name, sizeof(name), "random_deletes_%u_%u", range, count);
     unsigned ri = 0;
-    TIME(name) {
+    TIME(name, 1) {
         while (zd_btree_len(t)) {
             size_t k = (unsigned)rand() % range;
             zd_btree_remove(t, &k, NULL, NULL);
@@ -211,6 +223,64 @@ void bench_random(zd_btree *t,
         }
     }
     printf("count_random_deletes_%u_%u=%u\n", range, count, ri);
+}
+
+void bench_random_ir(unsigned seed, unsigned count)
+{
+    char name[512];
+    zz_btree bt, *t = &bt;
+    unsigned i;
+
+    srand(seed);
+    zz_btree_init(t);
+
+    snprintf(name, sizeof(name), "random_ir_ins_%u", count);
+    TIME(name, count) {
+        for (i = 0; i < count; ++i) {
+            size_t k = (unsigned)rand() % count;
+            zz_btree_insert(t, &k, &k, NULL);
+        }
+    }
+
+    snprintf(name, sizeof(name), "random_ir_%u", count);
+    TIME(name, 1000000) {
+        for (i = 0; i < 1000000; ++i) {
+            size_t k = (unsigned)rand() % count;
+            zz_btree_insert(t, &k, &k, NULL);
+            zz_btree_remove(t, &k, NULL, NULL);
+        }
+    }
+
+    dummy(t);
+}
+
+void bench_sequential_ir(unsigned count)
+{
+    char name[512];
+    zz_btree bt, *t = &bt;
+    unsigned i;
+
+    zz_btree_init(t);
+
+    snprintf(name, sizeof(name), "sequential_ir_ins_%u", count);
+    TIME(name, count) {
+        for (i = 0; i < count; ++i) {
+            size_t k = i * 2;
+            zz_btree_insert(t, &k, &k, NULL);
+        }
+    }
+
+    snprintf(name, sizeof(name), "sequential_ir_%u", count);
+    TIME(name, 1000000) {
+        size_t k = 1;
+        for (i = 0; i < 1000000; ++i) {
+            zz_btree_insert(t, &k, &k, NULL);
+            zz_btree_remove(t, &k, NULL, NULL);
+            k = (k + 2) % count;
+        }
+    }
+
+    dummy(t);
 }
 #endif
 
@@ -245,6 +315,10 @@ int main(void)
 #ifndef MAX
 #define MAX 10000
 #endif
+    bench_random_ir(1, 100);
+    bench_random_ir(2, 10000);
+    bench_sequential_ir(100);
+    bench_sequential_ir(10000);
     bench_random(t, 80, MAX, MAX);
     zd_btree_reset(t);
 #endif
