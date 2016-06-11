@@ -225,7 +225,7 @@ struct elem_ref node_elems(int is_branch, leaf_node *m)
 {
     struct elem_ref r;
     r.key = leaf_keys(m);
-    r.value = leaf_values(m);
+    cal_cond(HasValue)(r.value = leaf_values(m), CAL_NOARG);
     /* we always manipulate the key+value with its RIGHT child */
     r.child = is_branch ? unsafe_leaf_children(m) + 1 : NULL;
     return r;
@@ -425,13 +425,17 @@ KeyType *btree_entry_key(const btree_entry *ent)
 }
 
 /** Gets a pointer to the value at an occupied entry.  If the entry is not
-    occupied, the behavior is undefined. */
+    occupied, the behavior is undefined.
+
+    For sets, this returns a non-null pointer if the entry exists.  Otherwise,
+    it returns `NULL`. */
 static inline
 ValueType *btree_entry_get(const btree_entry *ent)
 {
-    return
-        leaf_values(ent->_nodestack[ent->_depth]) +
-        ent->_istack[ent->_depth];
+    return cal_cond(HasValue)(
+        leaf_values(ent->_nodestack[ent->_depth]),
+        leaf_keys(ent->_nodestack[ent->_depth])
+    ) + ent->_istack[ent->_depth];
 }
 
 /** Modifies an occupied entry to refer to its next element.  If there are no
@@ -546,7 +550,7 @@ ValueType *btree_get(btree *m, const KeyType *k)
     if (!n) {
         return NULL;
     }
-    return leaf_values(n) + i;
+    return cal_cond(HasValue)(leaf_values(n), leaf_keys(n)) + i;
 }
 
 /** Retrieves the value with the given key.  Returns `NULL` if it is not
@@ -571,7 +575,9 @@ void copy_elems(struct elem_ref dst, struct elem_ref src, size_t count)
     /* use memmove due to potential for overlap; it's not always needed, but
        better safe than sorry and the performance impact here is minimal */
     memmove(dst.key, src.key, count * sizeof(*src.key));
-    memmove(dst.value, src.value, count * sizeof(*src.value));
+    cal_cond(HasValue)(
+        memmove(dst.value, src.value, count * sizeof(*src.value))
+    , CAL_NOARG);
     assert(!!dst.child == !!src.child);
     if (src.child) {
         memmove(dst.child, src.child, count * sizeof(*src.child));
@@ -583,7 +589,7 @@ struct elem_ref offset_elem(struct elem_ref dst, ptrdiff_t count)
 {
     struct elem_ref r;
     r.key = dst.key + count;
-    r.value = dst.value + count;
+    cal_cond(HasValue)(r.value = dst.value + count, CAL_NOARG);
     r.child = dst.child ? dst.child + count : NULL;
     return r;
 }
@@ -631,26 +637,34 @@ int insert_node_here(int is_branch,
             unsafe_leaf_children(newnode)[0] = *elem.child;
         }
         *elem_out.key = *elem.key;
-        *elem_out.value = *elem.value;
+        cal_cond(HasValue)(
+            *elem_out.value = *elem.value;
+        , CAL_NOARG)
     } else {
         ChildIndexType mid = i < MinArity ? MinArity - 1 : MinArity;
         KeyType midkey = leaf_keys(node)[mid];
-        ValueType midvalue = leaf_values(node)[mid];
+        cal_cond(HasValue)(
+            ValueType midvalue = leaf_values(node)[mid]
+        , CAL_NOARG);
         if (is_branch) {
             unsafe_leaf_children(newnode)[0] =
                 unsafe_leaf_children(node)[mid + 1];
         }
         if (i < MinArity) {
-            copy_elems(offset_elem(elems, i + 1), offset_elem(elems, i),
+            copy_elems(offset_elem(elems, i + 1),
+                       offset_elem(elems, i),
                        (size_t)MinArity - 1 - i);
             copy_elems(offset_elem(elems, i), elem, 1);
         } else {
-            copy_elems(newelems, offset_elem(elems, MinArity + 1),
+            copy_elems(newelems,
+                       offset_elem(elems, MinArity + 1),
                        i - (size_t)MinArity - 1);
             copy_elems(offset_elem(newelems, i - MinArity - 1), elem, 1);
         }
         *elem_out.key = midkey;
-        *elem_out.value = midvalue;
+        cal_cond(HasValue)(
+            *elem_out.value = midvalue
+        , CAL_NOARG);
     }
     *leaf_len(node) = MinArity;
     *leaf_len(newnode) = MinArity - 1;
@@ -667,11 +681,13 @@ int insert_node_here(int is_branch,
     @note The `key` must match the original key used to obtain the vacant
     entry, or the behavior is undefined. */
 static inline
-int btree_entry_insert(btree *m, btree_entry *entry,
-                       const KeyType *key, const ValueType *value)
+int btree_entry_insert(btree *m,
+                       btree_entry *entry,
+                       const KeyType *key,
+                       const ValueType *value)
 {
     KeyType newkey;
-    ValueType newvalue;
+    cal_cond(HasValue)(ValueType newvalue, CAL_NOARG);
     leaf_node *newchild;
     struct elem_ref newelem;
     struct elem_ref elem;
@@ -688,14 +704,20 @@ int btree_entry_insert(btree *m, btree_entry *entry,
         m->_height = 1;
         *leaf_len(m->_root) = 1;
         leaf_keys(m->_root)[0] = *key;
-        leaf_values(m->_root)[0] = *value;
+        cal_cond(HasValue)(
+            leaf_values(m->_root)[0] = *value
+        , CAL_NOARG);
         return 0;
     }
     newelem.key = &newkey;
-    newelem.value = &newvalue;
+    cal_cond(HasValue)(
+        newelem.value = &newvalue
+    , CAL_NOARG);
     newelem.child = &newchild;
     elem.key = (KeyType *)key;
-    elem.value = (ValueType *)value;
+    cal_cond(HasValue)(
+        elem.value = (ValueType *)value
+    , CAL_NOARG);
     elem.child = NULL;
     h = (HeightType)(height - 1);
     r = insert_node_here(0, entry->_nodestack[h], entry->_istack[h],
@@ -720,7 +742,9 @@ int btree_entry_insert(btree *m, btree_entry *entry,
         ++m->_height;
         *branch_len(newroot) = 1;
         branch_keys(newroot)[0] = newkey;
-        branch_values(newroot)[0] = newvalue;
+        cal_cond(HasValue)(
+            branch_values(newroot)[0] = newvalue
+        , CAL_NOARG);
         branch_children(newroot)[0] = m->_root;
         branch_children(newroot)[1] = newchild;
         m->_root = branch_as_leaf(newroot);
@@ -732,8 +756,10 @@ int btree_entry_insert(btree *m, btree_entry *entry,
 
 /** Similar to `#btree_entry_insert` but aborts on error. */
 static inline
-void btree_entry_xinsert(btree *m, btree_entry *entry,
-                        const KeyType *key, const ValueType *value)
+void btree_entry_xinsert(btree *m,
+                         btree_entry *entry,
+                         const KeyType *key,
+                         const ValueType *value)
 {
     if (btree_entry_insert(m, entry, key, value)) {
         fprintf(stderr, "%s:%lu:btree_entry_xinsert: Out of memory\n",
@@ -771,14 +797,18 @@ int btree_insert(btree *m,
                  ValueType *value_out)
 {
     btree_entry ent;
+    (void)value;
+    (void)value_out;
     btree_find(m, key, &ent);
     if (btree_entry_occupied(m, &ent)) {
-        ValueType *poldvalue = btree_entry_get(&ent);
-        ValueType oldvalue = *poldvalue;
-        *poldvalue = *value;
-        if (value_out) {
-            *value_out = oldvalue;
-        }
+        cal_cond(HasValue)(
+            ValueType *poldvalue = btree_entry_get(&ent);
+            ValueType oldvalue = *poldvalue;
+            *poldvalue = *value;
+            if (value_out) {
+                *value_out = oldvalue;
+            }
+        , CAL_NOARG)
         return 1;
     }
     return -btree_entry_insert(m, &ent, key, value);
@@ -813,7 +843,9 @@ struct elem_ref parent_elem(int is_branch,
     assert(index < *branch_len(parentnode) + 1);
     right_child = branch_children(parentnode)[index + 1];
     r.key = branch_keys(parentnode) + index;
-    r.value = branch_values(parentnode) + index;
+    cal_cond(HasValue)(
+        r.value = branch_values(parentnode) + index
+    , CAL_NOARG);
     r.child = is_branch ? unsafe_leaf_children(right_child) : NULL;
     return r;
 }
@@ -1070,7 +1102,9 @@ void btree_entry_remove(btree *m, btree_entry *ent)
         lowernode = ent->_nodestack[height - 1];
         loweri = ent->_istack[height - 1];
         *key = leaf_keys(lowernode)[loweri];
-        leaf_values(uppernode)[upperi] = leaf_values(lowernode)[loweri];
+        cal_cond(HasValue)(
+            leaf_values(uppernode)[upperi] = leaf_values(lowernode)[loweri]
+        , CAL_NOARG);
         depth = (HeightType)(height - 1);
     }
 
@@ -1146,9 +1180,13 @@ void btree_entry_remove(btree *m, btree_entry *ent)
 
 */
 static inline
-int btree_remove(btree *m, const KeyType *key, KeyType *key_out, ValueType *value_out)
+int btree_remove(btree *m,
+                 const KeyType *key,
+                 KeyType *key_out,
+                 ValueType *value_out)
 {
     btree_entry ent;
+    (void)value_out;
     btree_find(m, key, &ent);
     if (!btree_entry_occupied(m, &ent)) {
         return 0;
@@ -1156,9 +1194,11 @@ int btree_remove(btree *m, const KeyType *key, KeyType *key_out, ValueType *valu
     if (key_out) {
         *key_out = *btree_entry_key(&ent);
     }
-    if (value_out) {
-        *value_out = *btree_entry_get(&ent);
-    }
+    cal_cond(HasValue)(
+        if (value_out) {
+            *value_out = *btree_entry_get(&ent);
+        }
+    , CAL_NOARG)
     btree_entry_remove(m, &ent);
     return 1;
 }
