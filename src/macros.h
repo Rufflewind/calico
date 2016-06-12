@@ -24,15 +24,17 @@
 
 /** Compare two values, returning a negative value if less than, positive
     value if greater than, and zero if equal. */
-#define cal_cmp(x, y) (((x) > (y)) - ((x) < (y)))
+#define cal_cmp(ctx, x, y) (((y) < (x)) - ((x) < (y)))
+/* note: for the btree implementation we have, this is noticeably more
+   efficient than ((x) < (y) ? -1 : (y) < (x)) */
 
 /** Compare two values pointed by the given pointers, returning a negative
     value if less than, positive value if greater than, and zero if equal. */
-#define cal_pcmp(x, y) cal_cmp(*x, *y)
+#define cal_pcmp(ctx, x, y) cal_cmp(ctx, *x, *y)
 
 /** Compare two null-terminated strings pointed by the given pointers using
     `strcmp`. */
-#define cal_pstrcmp(x, y) strcmp(*x, *y)
+#define cal_pstrcmp(ctx, x, y) strcmp(*x, *y)
 
 /** Expand to the first argument if the condition is 1, or the second argument
     if the condition is 0.  The behavior is unspecified if the condition is

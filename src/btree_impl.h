@@ -10,8 +10,10 @@ The main parameters are:
 
   - `KeyType`: key type
   - `ValueType`: value type
-  - `CompareFunction`: function used to compare keys
-    (default: `cal_pcmp`, type: `int (*)(const KeyType *, const KeyType *))`)
+  - `CompareFunction`: function used to compare keys, with a type that,
+    through implicit conversions, can be called as if its type is
+    `int (*)(btree *, const KeyType *, const KeyType *)`
+    (default: `cal_pcmp`).
 
 Some other parameters useful for tuning performance are:
 
@@ -98,10 +100,6 @@ enum {
         (CHAR_BIT * sizeof(void *) - cal_minlog2(sizeof(leaf_node)))
         / cal_minlog2(MinArity) + 1
 };
-
-static_assert((HeightType)MAX_HEIGHT == MAX_HEIGHT, "height is too big");
-static_assert((ChildIndexType)MinArity == MinArity, "MinArity is too big");
-static_assert(MinArity >= 2, "MinArity must be at least 2");
 
 /** Refers to a specific location in a B-tree.  If the entry is vacant, then
     an element may be inserted at the location.  If the entry is occupied,
@@ -238,6 +236,14 @@ void btree_init(btree *m)
     m->_len = 0;
     m->_height = 0;
     m->_root = NULL;
+
+    /* put these inside a function because the fallback mechanism for
+       static_assert expands to multiple identical declarations, which cannot
+       be put in the body of a C++ class */
+    static_assert((HeightType)MAX_HEIGHT == MAX_HEIGHT, "height is too big");
+    static_assert((ChildIndexType)MinArity == MinArity, "MinArity is too big");
+    static_assert(MinArity >= 2, "MinArity must be at least 2");
+
 }
 
 static inline
@@ -289,29 +295,34 @@ size_t btree_len(const btree *m)
 static inline
 int generic_compare(void *ctx, const void *x, const void *y)
 {
+    /* avoid unused-parameter warnings if CompareFunction is a macro */
     (void)ctx;
-    return CompareFunction((const KeyType *)x, (const KeyType *)y);
+    (void)x;
+    (void)y;
+    return CompareFunction((btree *)ctx,
+                           (const KeyType *)x,
+                           (const KeyType *)y);
 }
 
 static inline
-leaf_node *lookup_iter(ChildIndexType *i_out,
+leaf_node *lookup_iter(btree *m,
+                       ChildIndexType *i_out,
                        leaf_node *node,
                        HeightType *h,
-                       HeightType height,
                        const KeyType *key)
 {
     size_t i;
     int r;
-    assert(height);
+    assert(m->_height);
     r = SearchFunction(key,
                        leaf_keys(node),
                        *leaf_len(node),
                        sizeof(*key),
                        &generic_compare,
-                       NULL,
+                       m,
                        &i);
     *i_out = (ChildIndexType)i;
-    if (r || ++*h >= height) {
+    if (r || ++*h >= m->_height) {
         return NULL;
     }
     return branch_children(unsafe_leaf_as_branch(node))[*i_out];
@@ -331,9 +342,10 @@ void btree_find(btree *m, const KeyType *key, btree_entry *entry_out)
         HeightType h = 0;
         leaf_node *node = m->_root;
         entry_out->_nodestack[0] = node;
-        while ((node = lookup_iter(entry_out->_istack + h,
+        while ((node = lookup_iter(m,
+                                   entry_out->_istack + h,
                                    entry_out->_nodestack[h],
-                                   &h, height, key))) {
+                                   &h, key))) {
             entry_out->_nodestack[h] = node;
         }
         entry_out->_depth = h;
@@ -508,35 +520,28 @@ int btree_entry_prev(const btree *m, btree_entry *ent)
     return 1;
 }
 
-static inline
-leaf_node *find_node(HeightType height,
-                     leaf_node *node,
-                     const KeyType *key,
-                     ChildIndexType *index)
-{
-    ChildIndexType i;
-    HeightType h = 0;
-    leaf_node *newnode;
-    while ((newnode = lookup_iter(&i, node, &h, height, key))) {
-        node = newnode;
-    }
-    if (h == height) {
-        return NULL;
-    }
-    *index = i;
-    return node;
-}
-
 /* Return the node and the position within that node. */
 static inline
 leaf_node *get_node(btree *m, const KeyType *key, ChildIndexType *index)
 {
+    ChildIndexType i;
+    HeightType h;
+    leaf_node *node, *newnode;
     if (!m->_root) {
         assert(m->_height == 0);
         assert(m->_len == 0);
         return NULL;
     }
-    return find_node(m->_height, m->_root, key, index);
+    node = m->_root;
+    h = 0;
+    while ((newnode = lookup_iter(m, &i, node, &h, key))) {
+        node = newnode;
+    }
+    if (h == m->_height) {
+        return NULL;
+    }
+    *index = i;
+    return node;
 }
 
 /** Retrieves the value with the given key.  Returns `NULL` if it is not
@@ -693,6 +698,7 @@ int btree_entry_insert(btree *m,
     struct elem_ref elem;
     HeightType h, height = m->_height;
     int r;
+    (void)value;
     if (!height) {
         assert(!m->_len);
         assert(!m->_root);
