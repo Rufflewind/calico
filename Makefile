@@ -17,6 +17,7 @@ doc: build
 	mkdir -p tmp/doc-src/calico
 	cp src/linear_ordered_search.h \
 	   src/binary_search.h \
+	   src/shuffle.h \
 	   src/macros.h \
 	   tmp/doc-src/calico
 	cp src/btree_impl.h tmp/doc-src/calico/btree_template.h
