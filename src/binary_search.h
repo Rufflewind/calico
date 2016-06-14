@@ -1,5 +1,7 @@
 #ifndef G_WZJZCCUAAKWCCDXAXI6O6GC574KDM
 #define G_WZJZCCUAAKWCCDXAXI6O6GC574KDM
+/** @file
+    Binary search. */
 #include <stddef.h>
 #include "compat/inline_begin.h"
 

@@ -15,6 +15,10 @@ clean:
 doc: build
 	rm -fr tmp/doc-src
 	mkdir -p tmp/doc-src/calico
+	cp src/linear_ordered_search.h \
+	   src/binary_search.h \
+	   src/macros.h \
+	   tmp/doc-src/calico
 	cp src/btree_impl.h tmp/doc-src/calico/btree_template.h
 	cp Doxyfile tmp/doc-src/Doxyfile
 	cd tmp/doc-src && doxygen

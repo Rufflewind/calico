@@ -49,6 +49,8 @@ cal_def_btree(zd, MinArity, key_type, value_type, 1, cal_pcmp,
 #define KeyType size_t
 #include "btree_template.h"
 
+#include "shuffle.h"
+
 #include "compat/inline_begin.h"
 
 static
@@ -170,6 +172,7 @@ void test_random(zd_btree *t,
     }
 }
 #else
+
 static
 void bench_random(zd_btree *t,
                   unsigned seed,
