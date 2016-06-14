@@ -1,4 +1,4 @@
-#ifdef RF_NORETURN_DEFINED
+#ifdef CAL_NORETURN_DEFINED
 # error "must not include begin header twice in succession"
 #else
 # ifndef noreturn
@@ -13,8 +13,8 @@
 #  else
 #   define noreturn
 #  endif
-#  define RF_NORETURN_DEFINED 1
+#  define CAL_NORETURN_DEFINED 1
 # else
-#  define RF_NORETURN_DEFINED 0
+#  define CAL_NORETURN_DEFINED 0
 # endif
 #endif

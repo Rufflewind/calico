@@ -1,4 +1,4 @@
-#ifdef RF_INLINE_DEFINED
+#ifdef CAL_INLINE_DEFINED
 # error "must not include begin header twice in succession"
 #else
 # if !defined inline && __STDC_VERSION__ < 199901L && !defined __cplusplus
@@ -9,8 +9,8 @@
 #  else
 #   define inline static
 #  endif
-#  define RF_INLINE_DEFINED 1
+#  define CAL_INLINE_DEFINED 1
 # else
-#  define RF_INLINE_DEFINED 0
+#  define CAL_INLINE_DEFINED 0
 # endif
 #endif

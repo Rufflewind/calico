@@ -1,6 +1,6 @@
-#if !defined RF_ALIGNAS_DEFINED
+#if !defined CAL_ALIGNAS_DEFINED
 # error "must not include end header without matching begin"
-#elif RF_ALIGNAS_DEFINED
+#elif CAL_ALIGNAS_DEFINED
 # undef alignas
 #endif
-#undef RF_ALIGNAS_DEFINED
+#undef CAL_ALIGNAS_DEFINED
