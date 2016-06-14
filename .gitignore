@@ -1,4 +1,5 @@
 doc/
+include/
 tmp/
 src/arithmetic.h
 src/btree.h
