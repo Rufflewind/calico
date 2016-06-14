@@ -31,7 +31,7 @@ int binary_search(const void *key,
             return 1;
         }
         if (r > 0) {
-            m -= !(count % 2);
+            m -= 1 - count % 2;
             i = j + 1;
         }
         count = m;
