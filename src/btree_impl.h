@@ -113,9 +113,10 @@ typedef struct {
 
 /* A simple container used for readability purposes */
 struct elem_ref {
-    KeyType *key;
+    /* void here signifies that it may point to unaligned memory */
+    void *key;
 cal_cond(HasValue)(
-    ValueType *value;
+    void *value;
 , CAL_NOARG)
     leaf_node **child; /* right child */
 };
@@ -317,7 +318,7 @@ leaf_node *lookup_iter(btree *m,
     r = SearchFunction(key,
                        leaf_keys(node),
                        *leaf_len(node),
-                       sizeof(*key),
+                       sizeof(KeyType),
                        &generic_compare,
                        m,
                        &i);
@@ -579,9 +580,9 @@ void copy_elems(struct elem_ref dst, struct elem_ref src, size_t count)
 {
     /* use memmove due to potential for overlap; it's not always needed, but
        better safe than sorry and the performance impact here is minimal */
-    memmove(dst.key, src.key, count * sizeof(*src.key));
+    memmove(dst.key, src.key, count * sizeof(KeyType));
     cal_cond(HasValue)(
-        memmove(dst.value, src.value, count * sizeof(*src.value))
+        memmove(dst.value, src.value, count * sizeof(ValueType))
     , CAL_NOARG);
     assert(!!dst.child == !!src.child);
     if (src.child) {
@@ -593,8 +594,10 @@ static inline
 struct elem_ref offset_elem(struct elem_ref dst, ptrdiff_t count)
 {
     struct elem_ref r;
-    r.key = dst.key + count;
-    cal_cond(HasValue)(r.value = dst.value + count, CAL_NOARG);
+    r.key = (char *)dst.key + count * (ptrdiff_t)sizeof(KeyType);
+    cal_cond(HasValue)(
+        r.value = (char *)dst.value + count * (ptrdiff_t)sizeof(ValueType)
+    , CAL_NOARG);
     r.child = dst.child ? dst.child + count : NULL;
     return r;
 }
@@ -641,16 +644,20 @@ int insert_node_here(int is_branch,
         if (is_branch) {
             unsafe_leaf_children(newnode)[0] = *elem.child;
         }
-        *elem_out.key = *elem.key;
+        memmove(elem_out.key, elem.key, sizeof(KeyType));
         cal_cond(HasValue)(
-            *elem_out.value = *elem.value;
+            memmove(elem_out.value, elem.value, sizeof(ValueType));
         , CAL_NOARG)
     } else {
         ChildIndexType mid = i < MinArity ? MinArity - 1 : MinArity;
-        KeyType midkey = leaf_keys(node)[mid];
+        /* declare these as raw char arrays to avoid triggering the
+           constructors/destructors of KeyType and ValueType */
+        char midkey[sizeof(KeyType)];
         cal_cond(HasValue)(
-            ValueType midvalue = leaf_values(node)[mid]
-        , CAL_NOARG);
+            char midvalue[sizeof(ValueType)];
+            memcpy(midvalue, leaf_values(node) + mid, sizeof(ValueType));
+        , CAL_NOARG)
+        memcpy(midkey, leaf_keys(node) + mid, sizeof(KeyType));
         if (is_branch) {
             unsafe_leaf_children(newnode)[0] =
                 unsafe_leaf_children(node)[mid + 1];
@@ -666,10 +673,10 @@ int insert_node_here(int is_branch,
                        i - (size_t)MinArity - 1);
             copy_elems(offset_elem(newelems, i - MinArity - 1), elem, 1);
         }
-        *elem_out.key = midkey;
+        memcpy(elem_out.key, midkey, sizeof(KeyType));
         cal_cond(HasValue)(
-            *elem_out.value = midvalue
-        , CAL_NOARG);
+            memcpy(elem_out.value, midvalue, sizeof(ValueType));
+        , CAL_NOARG)
     }
     *leaf_len(node) = MinArity;
     *leaf_len(newnode) = MinArity - 1;
@@ -691,8 +698,8 @@ int btree_entry_insert(btree *m,
                        const KeyType *key,
                        const ValueType *value)
 {
-    KeyType newkey;
-    cal_cond(HasValue)(ValueType newvalue, CAL_NOARG);
+    char newkey[sizeof(KeyType)];
+    cal_cond(HasValue)(char newvalue[sizeof(ValueType)], CAL_NOARG);
     leaf_node *newchild;
     struct elem_ref newelem;
     struct elem_ref elem;
@@ -715,14 +722,14 @@ int btree_entry_insert(btree *m,
         , CAL_NOARG);
         return 0;
     }
-    newelem.key = &newkey;
+    newelem.key = newkey;
     cal_cond(HasValue)(
-        newelem.value = &newvalue
+        newelem.value = newvalue
     , CAL_NOARG);
     newelem.child = &newchild;
-    elem.key = (KeyType *)key;
+    elem.key = (void *)key;
     cal_cond(HasValue)(
-        elem.value = (ValueType *)value
+        elem.value = (void *)value
     , CAL_NOARG);
     elem.child = NULL;
     h = (HeightType)(height - 1);
@@ -747,9 +754,9 @@ int btree_entry_insert(btree *m,
         }
         ++m->_height;
         *branch_len(newroot) = 1;
-        branch_keys(newroot)[0] = newkey;
+        memcpy(branch_keys(newroot), newkey, sizeof(KeyType));
         cal_cond(HasValue)(
-            branch_values(newroot)[0] = newvalue
+            memcpy(branch_values(newroot), newvalue, sizeof(ValueType))
         , CAL_NOARG);
         branch_children(newroot)[0] = m->_root;
         branch_children(newroot)[1] = newchild;

@@ -201,7 +201,10 @@ void bench_random(zd_btree *t,
 #ifdef BASE
             dummyu((unsigned)k);
 #else
-            dummyu((unsigned)zd_btree_get(t, &k));
+            unsigned char u;
+            void *ptr = zd_btree_get(t, &k);
+            memcpy(&u, &ptr, 1);
+            dummyu(u);
 #endif
         }
     }
