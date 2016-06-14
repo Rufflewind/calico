@@ -1,7 +1,9 @@
 /** @file
 
-    Provides an `alloca`-like function using variable-length arrays (VLAs), a
-    built-in `alloca` function, or using `malloc`.
+    Compatibility header for `alloca`.
+
+    This header provides an `alloca`-like function using variable-length
+    arrays (VLAs), a built-in `alloca` function, or using `malloc`.
 
     Two functions are provided:
 

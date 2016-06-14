@@ -15,8 +15,9 @@ clean:
 doc: build
 	rm -fr tmp/doc-src
 	mkdir -p tmp/doc-src/calico
-	cp src/linear_ordered_search.h \
+	cp src/alloca.h \
 	   src/binary_search.h \
+	   src/linear_ordered_search.h \
 	   src/shuffle.h \
 	   src/macros.h \
 	   tmp/doc-src/calico
