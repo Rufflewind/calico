@@ -5,6 +5,28 @@ import os, re, subprocess, sys
 # mechanism suck?  A. it's non-composable: you can't sensibly include other
 # templates from within templates, because the parameter macros will collide
 
+#@snip/WorkDir[
+#@requires: mod:os
+class WorkDir(object):
+    '''A context manager for changing to a different working directory.  The
+    original working directory is restored upon exiting the context.'''
+
+    def __init__(self, path):
+        '''Initialize a context for changing the working directory.'''
+        self.path = path
+
+    def __enter__(self):
+        '''Change the working directory and return the path to the previous
+        working directory.'''
+        self.prevdir = os.getcwd()
+        os.chdir(self.path)
+        return self.prevdir
+
+    def __exit__(self, type, value, traceback):
+        '''Restore the the temporary directory.'''
+        os.chdir(self.prevdir)
+#@]
+
 def load_file(fn):
     with open(fn, "rt") as f:
         return f.read()
@@ -14,13 +36,6 @@ def escape_newlines(s):
 
 def replace_ident(s, old, new):
     return re.sub(r"\b{0}\b".format(re.escape(old)), lambda _: new, s)
-
-def process_directives__replacement(m):
-    body, = m.groups()
-    return eval(body)
-
-def process_directives(s):
-    return re.sub(r"(?s)/\*@(.*?)\*/", process_directives__replacement, s)
 
 def get_global_idents(code):
     with open(os.devnull, "w+b") as fdevnull:
@@ -69,6 +84,9 @@ def prepend_prefix(s,
             "cal_cat({0}, {1}_{2})".format(prefix_macro, subprefix, ident),
         )
     return s
+
+def make_public():
+    return ""
 
 def make_template(fn,
                   prefix_macro="Prefix",
@@ -124,10 +142,26 @@ def read_attributes(fn):
             attributes[k] = v
     return attributes
 
+class Preprocessor(object):
+
+    def __init__(self, filename):
+        self.filename = os.path.abspath(filename)
+
+    def preprocess(self):
+        s = load_file(self.filename)
+        with WorkDir(os.path.dirname(self.filename)):
+            sys.stdout.write(self._process_directives(s))
+
+    def _process_directives_replacement(self, _m):
+        return eval(_m.groups()[0])
+
+    def _process_directives(self, s):
+        return re.sub(r"(?s)/\*@(.*?)\*/",
+                      self._process_directives_replacement,
+                      s)
+
 def preproc(fn):
-    fn = os.path.abspath(fn)
-    os.chdir(os.path.dirname(fn))
-    sys.stdout.write(process_directives(load_file(fn)))
+    Preprocessor(fn).preprocess()
 
 if len(sys.argv) > 1:
     eval(sys.argv[1] + "(" + ", ".join(repr(x) for x in sys.argv[2:]) + ")")

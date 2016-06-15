@@ -18,6 +18,7 @@ union _LARGE_INTEGER;
 #ifdef __cplusplus
 extern "C" {
 #endif
+/*@make_public()*/
 /** @file
 
     Functions for accessing a monotonic wall clock.

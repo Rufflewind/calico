@@ -7,6 +7,7 @@
 #define HasValue 0
 #endif
 #endif
+/*@make_public()*/
 /*@
 make_template(
     "btree_impl.h",
