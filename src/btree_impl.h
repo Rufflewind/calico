@@ -362,6 +362,7 @@ void move_to_extremum(HeightType height,
                       leaf_node **nodestack)
 {
     HeightType h;
+    assert(height);
     for (h = 0; ; ++h) {
         ChildIndexType i = (ChildIndexType)(*leaf_len(node) * !!which);
         if (which && h >= height - 1) {
@@ -375,6 +376,11 @@ void move_to_extremum(HeightType height,
         node = unsafe_leaf_children(node)[i];
     }
     *depth = (HeightType)(*depth + height - 1);
+    /* if the leaf node is empty (this can happen on a lone root node),
+       then set the `depth` to `height` to indicate it's vacant */
+    if (!*leaf_len(node)) {
+        *depth = (HeightType)(*depth + 1);
+    }
 }
 
 static inline
@@ -716,9 +722,9 @@ int btree_entry_insert(btree *m,
         ++m->_len;
         m->_height = 1;
         *leaf_len(m->_root) = 1;
-        leaf_keys(m->_root)[0] = *key;
+        memcpy(leaf_keys(m->_root), key, sizeof(KeyType));
         cal_cond(HasValue)(
-            leaf_values(m->_root)[0] = *value
+            memcpy(leaf_values(m->_root), value, sizeof(ValueType));
         , CAL_NOARG);
         return 0;
     }
@@ -816,11 +822,12 @@ int btree_insert(btree *m,
     btree_find(m, key, &ent);
     if (btree_entry_occupied(m, &ent)) {
         cal_cond(HasValue)(
+            char oldvalue[sizeof(ValueType)];
             ValueType *poldvalue = btree_entry_get(&ent);
-            ValueType oldvalue = *poldvalue;
-            *poldvalue = *value;
+            memcpy(&oldvalue, poldvalue, sizeof(ValueType));
+            memmove(poldvalue, value, sizeof(ValueType));
             if (value_out) {
-                *value_out = oldvalue;
+                memcpy(value_out, &oldvalue, sizeof(ValueType));
             }
         , CAL_NOARG)
         return 1;
@@ -1137,7 +1144,8 @@ void btree_entry_remove(btree *m, btree_entry *ent)
                        (size_t)(len - i - 1));
             *leaf_len(node) = (ChildIndexType)(len - 1);
             if (!depth && len == 1 && is_branch) {
-                /* root node is a branch and is about to become empty */
+                /* if the root node is a branch and is about to become empty,
+                   we delete it and promote its sole child to root */
                 m->_root = unsafe_leaf_children(node)[0];
                 free(node);
                 --m->_height;
@@ -1206,11 +1214,11 @@ int btree_remove(btree *m,
         return 0;
     }
     if (key_out) {
-        *key_out = *btree_entry_key(&ent);
+        memmove(key_out, btree_entry_key(&ent), sizeof(KeyType));
     }
     cal_cond(HasValue)(
         if (value_out) {
-            *value_out = *btree_entry_get(&ent);
+            memmove(value_out, btree_entry_get(&ent), sizeof(ValueType));
         }
     , CAL_NOARG)
     btree_entry_remove(m, &ent);
