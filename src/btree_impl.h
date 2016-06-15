@@ -792,12 +792,13 @@ void btree_entry_xinsert(btree *m,
     returned.  If an existing element was replaced, `1` is returned.  If an
     error occurs, a negative value is returned.
 
-    @note If the existing value that is replaced is associated with some
-    resources, they will not be released.  In this case, to avoid this issue
-    the result stored in `value_out` should be freed if an existing value was
-    replaced.  For example,
+    @note If the keys and/or values are associated with resources, they are
+    not automatically released.  In this case, to prevent memory leaks it is
+    necessary to free the old value stored in `value_out` as well as the `key`
+    if an existing value was replaced.  For example,
     ~~~c
-    if (btree_xinsert(m, key, value, &old_value)) {
+    if (btree_xinsert(m, &key, &value, &old_value)) {
+        free(key);
         free(old_value);
     }
     ~~~
