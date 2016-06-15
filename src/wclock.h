@@ -1,9 +1,7 @@
 #ifndef G_5FP4P4EX8CFF5QNJGX7WJ5L9QH6QS
 #define G_5FP4P4EX8CFF5QNJGX7WJ5L9QH6QS
 #if defined _WIN32
-# undef NOMINMAX
-# define NOMINMAX
-# include <windows.h>
+union _LARGE_INTEGER;
 #elif defined __MACH__
 # include <mach/mach_time.h>
 #else
@@ -23,6 +21,11 @@ extern "C" {
 /** @file
 
     Functions for accessing a monotonic wall clock.
+
+    Note: on systems other than Windows or Mac OS X, it is strongly
+    recommended to define `_POSIX_C_SOURCE` to a value of at least `199309L`
+    before the inclusion of this header or any system header.
+
 */
 
 typedef struct { double _data; } wclock;
@@ -73,11 +76,12 @@ inline
 int init_wclock(wclock *self)
 {
 #if defined _WIN32
-    LARGE_INTEGER freq;
-    if (!QueryPerformanceFrequency(&freq)) {
+    int __stdcall QueryPerformanceFrequency(union _LARGE_INTEGER *);
+    __int64 freq;
+    if (!QueryPerformanceFrequency((union _LARGE_INTEGER *)&freq)) {
         return 1;
     }
-    self->_data = 1. / freq.QuadPart;
+    self->_data = 1. / (double)freq;
 #elif defined __MACH__
     mach_timebase_info_data_t base;
     if (mach_timebase_info(&base)) {
@@ -94,11 +98,12 @@ inline
 double get_wclock(const wclock *self)
 {
 #if defined _WIN32
-    LARGE_INTEGER count;
-    if (!QueryPerformanceCounter(&count)) {
+    int __stdcall QueryPerformanceCounter(union _LARGE_INTEGER *);
+    __int64 count;
+    if (!QueryPerformanceCounter((union _LARGE_INTEGER *)&count)) {
         return NAN;
     }
-    return count.QuadPart * self->_data;
+    return (double)count * self->_data;
 #elif defined __MACH__
     return mach_absolute_time() * self->_data;
 #else
@@ -127,7 +132,6 @@ double get_wclock_res(const wclock *self)
 }
 
 #include "compat/inline_end.h"
-
 #ifdef __cplusplus
 }
 #endif
