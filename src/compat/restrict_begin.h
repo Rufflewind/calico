@@ -1,3 +1,4 @@
+/*@#public*/
 #ifdef CAL_RESTRICT_DEFINED
 # error "must not include begin header twice in succession"
 #else

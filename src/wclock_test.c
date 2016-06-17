@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "wclock.h"
 #ifdef _WIN32
 # include <windows.h>

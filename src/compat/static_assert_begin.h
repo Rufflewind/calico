@@ -1,3 +1,4 @@
+/*@#public*/
 #ifdef CAL_STATIC_ASSERT_DEFINED
 # error "must not include begin header twice in succession"
 #else

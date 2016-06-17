@@ -1,3 +1,4 @@
+/*@#public*/
 /** @file
 
     Miscellaneous utility macros.

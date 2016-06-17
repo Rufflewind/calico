@@ -14,7 +14,7 @@ static double clk_time;
          ++timing_counter,                                              \
          printf("time_%s=%.6g\n", name, get_wclock(&clk) - clk_time))
 
-void dummy(void *);
+void black_box(void *);
 
 static
 void test_random_inserts(unsigned seed,
@@ -31,7 +31,7 @@ void test_random_inserts(unsigned seed,
             size_t k = (unsigned)rand() % range;
             double v = (double)((unsigned)rand() % range);
             t[k] = v;
-            dummy(&t[k]);
+            black_box(&t[k]);
 #ifndef PROFILE
             assert(t[k] == v);
 #endif
@@ -41,7 +41,7 @@ void test_random_inserts(unsigned seed,
     TIME(name) {
         for (unsigned i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % range;
-            dummy(&t[k]);
+            black_box(&t[k]);
         }
     }
 }

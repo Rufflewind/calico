@@ -1,5 +1,6 @@
 #ifndef G_WZJZCCUAAKWCCDXAXI6O6GC574KDM
 #define G_WZJZCCUAAKWCCDXAXI6O6GC574KDM
+/*@#public*/
 /** @file
     Binary search. */
 #include <stddef.h>
@@ -11,13 +12,13 @@
     `*pos_out` is set to the index of the smallest element greater than `key`.
     `pos_out` is optional and can be null. */
 static inline
-int binary_search(const void *key,
-                  const void *ptr,
-                  size_t count,
-                  size_t size,
-                  int (*cmp)(void *, const void *, const void *),
-                  void *cmp_ctx,
-                  size_t *pos_out)
+int cal_binary_search(const void *key,
+                      const void *ptr,
+                      size_t count,
+                      size_t size,
+                      int (*cmp)(void *, const void *, const void *),
+                      void *cmp_ctx,
+                      size_t *pos_out)
 {
     size_t i = 0;
     while (count) {

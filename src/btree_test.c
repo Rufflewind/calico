@@ -9,7 +9,7 @@
 #define MinArity 8
 #endif
 #ifndef SearchFunction
-#define SearchFunction linear_ordered_search
+#define SearchFunction cal_linear_ordered_search
 #endif
 #include "linear_ordered_search.h"
 #include "binary_search.h"
@@ -181,9 +181,9 @@ void bench_random(zd_btree *t,
             size_t k = (unsigned)rand() % range;
             double v = (double)((unsigned)rand() % range);
 #ifdef BASE
-            dummyu((unsigned)k);
+            black_box_u((unsigned)k);
 #else
-            dummyu((unsigned)zd_btree_insert(t, &k, &v, NULL));
+            black_box_u((unsigned)zd_btree_insert(t, &k, &v, NULL));
 #endif
         }
     }
@@ -192,12 +192,12 @@ void bench_random(zd_btree *t,
         for (i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % range;
 #ifdef BASE
-            dummyu((unsigned)k);
+            black_box_u((unsigned)k);
 #else
             unsigned char u;
             void *ptr = zd_btree_get(t, &k);
             memcpy(&u, &ptr, 1);
-            dummyu(u);
+            black_box_u(u);
 #endif
         }
     }
@@ -208,8 +208,8 @@ void bench_random(zd_btree *t,
         for (zd_btree_find_first(t, &entry);
              zd_btree_entry_occupied(t, &entry);
              zd_btree_entry_next(t, &entry)) {
-            dummyu((unsigned)*zd_btree_entry_key(&entry) +
-                   (unsigned)*zd_btree_entry_get(&entry));
+            black_box_u((unsigned)*zd_btree_entry_key(&entry) +
+                        (unsigned)*zd_btree_entry_get(&entry));
         }
     }
     snprintf(name, sizeof(name), "random_deletes_%u_%u", range, count);
@@ -250,7 +250,7 @@ void bench_random_ir(unsigned seed, unsigned count)
         }
     }
 
-    dummy(t);
+    black_box(t);
 }
 
 void bench_sequential_ir(unsigned count)
@@ -279,7 +279,7 @@ void bench_sequential_ir(unsigned count)
         }
     }
 
-    dummy(t);
+    black_box(t);
 }
 #endif
 

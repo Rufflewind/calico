@@ -1,3 +1,4 @@
+/*@#public*/
 #include <assert.h>
 #include <limits.h>                     /* for CHAR_BIT */
 #include <stdlib.h>                     /* for allocation + size_t */

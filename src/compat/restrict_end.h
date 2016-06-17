@@ -1,3 +1,4 @@
+/*@#public*/
 #if !defined CAL_RESTRICT_DEFINED
 # error "must not include end header without matching begin"
 #elif CAL_RESTRICT_DEFINED

@@ -1,30 +1,6 @@
 #!/usr/bin/env python
 import sys
 
-header_begin = """
-#ifndef G_O01SKTDA3IE3J0XOJ0SFUII39F91W
-#define G_O01SKTDA3IE3J0XOJ0SFUII39F91W
-#include <limits.h>
-#include <stddef.h>
-#include <stdlib.h>
-#ifndef __has_feature
-# define __has_feature(x) 0
-#endif
-#ifndef __has_builtin
-# define __has_builtin(x) 0
-#endif
-#ifdef __cplusplus
-extern "C" {
-#endif
-"""[1:]
-
-header_end = """
-#ifdef __cplusplus
-}
-#endif
-#endif
-"""[1:]
-
 qualifiers = "static inline"
 
 wrap_operations = set(["add", "sub", "mul"])
@@ -323,8 +299,6 @@ def construct_conv_name(srctype, dsttype):
     return suffix[srctype] + "_to_" + suffix[dsttype]
 
 write = sys.stdout.write
-write(header_begin)
-write("\n")
 
 for srctype, dsttype in convtypes:
     cur_guard = guard(srctype) + guard(dsttype)
@@ -396,5 +370,3 @@ for operation in all_operations:
             write("#endif\n")
 
         write("\n")
-
-write(header_end)

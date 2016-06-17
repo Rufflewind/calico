@@ -1,3 +1,4 @@
+/*@#public*/
 /** @file
 
     Compatibility header for `alloca`.

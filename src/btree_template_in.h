@@ -7,7 +7,7 @@
 #define HasValue 0
 #endif
 #endif
-/*@make_public()*/
+/*@#public*/
 /*@
 make_template(
     "btree_impl.h",
@@ -18,7 +18,7 @@ make_template(
         "KeyType",
         "ValueType=void",
         "CompareFunction=cal_pcmp",
-        "SearchFunction=linear_ordered_search",
+        "SearchFunction=cal_linear_ordered_search",
         "MinArity=8",
         "ChildIndexType=unsigned short",
         "HeightType=unsigned char",

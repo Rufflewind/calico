@@ -1,3 +1,4 @@
+/*@#public*/
 #if !defined CAL_STATIC_ASSERT_DEFINED
 # error "must not include end header without matching begin"
 #elif CAL_STATIC_ASSERT_DEFINED

@@ -153,7 +153,10 @@ class Preprocessor(object):
             sys.stdout.write(self._process_directives(s))
 
     def _process_directives_replacement(self, _m):
-        return eval(_m.groups()[0])
+        _body, = _m.groups()
+        if _body.lstrip().startswith("#"):
+            return ""
+        return eval(_body)
 
     def _process_directives(self, s):
         return re.sub(r"(?s)/\*@(.*?)\*/",

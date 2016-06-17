@@ -22,7 +22,7 @@ int binary_search_Type(const Type *key,
                        size_t count,
                        size_t *pos_out)
 {
-    return binary_search(key, ptr, count, sizeof(Type),
+    return cal_binary_search(key, ptr, count, sizeof(Type),
                          &generic_compare_Type, NULL, pos_out);
 }
 

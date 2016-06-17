@@ -17,8 +17,8 @@ static double clk_time;
                 (get_wclock(&clk) - clk_time) / repeats))
 
 /* black boxes to prevent optimizations */
-void dummy(void *);
-void dummyu(unsigned);
+void black_box(void *);
+void black_box_u(unsigned);
 
 #else
 

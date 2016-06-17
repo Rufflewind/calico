@@ -1,6 +1,7 @@
 #ifndef G_6Z7W8UA9FODDEZVAJ1AST1BZP2MZU
 #define G_6Z7W8UA9FODDEZVAJ1AST1BZP2MZU
 #include "btree_head.h"
+/*@#public*/
 
 /**
    Hint: Use cal_pcmp for built-in types, and cal_pstrcmp for strings.
@@ -25,10 +26,12 @@ escape_newlines(
 
 #define cal_def_btreemap(Prefix, K, V, CompareFunction) \
     cal_def_btree(Prefix, 16, K, V, 1, CompareFunction, \
-                  linear_sorted_search, unsigned short, unsigned char, inline)
+                  cal_linear_sorted_search, unsigned short, \
+                  unsigned char, inline)
 
 #define cal_def_btreeset(Prefix, K, CompareFunction) \
     cal_def_btree(Prefix, 16, K, void, 0, CompareFunction, \
-                  linear_sorted_search, unsigned short, unsigned char, inline)
+                  cal_linear_sorted_search, unsigned short, \
+                  unsigned char, inline)
 
 #endif

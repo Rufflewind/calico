@@ -18,7 +18,7 @@ union _LARGE_INTEGER;
 #ifdef __cplusplus
 extern "C" {
 #endif
-/*@make_public()*/
+/*@#public*/
 /** @file
 
     Functions for accessing a monotonic wall clock.
@@ -57,7 +57,7 @@ int init_wclock(wclock *clock);
     to about a few microseconds.  In practice, it is usually much less.
 */
 static
-double get_wclock(const wclock *wclock);
+double get_wclock(const wclock *clock);
 
 /** Obtain the resolution of the monotonic wall clock in seconds.
 
@@ -69,7 +69,7 @@ double get_wclock(const wclock *wclock);
     If an error occurs, `NAN` is returned.
 */
 static
-double get_wclock_res(const wclock *wclock);
+double get_wclock_res(const wclock *clock);
 
 #include "compat/inline_begin.h"
 

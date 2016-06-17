@@ -1,5 +1,6 @@
 #ifndef G_IB1RSJRJ5ELTXW92F82R0LCRDDI15
 #define G_IB1RSJRJ5ELTXW92F82R0LCRDDI15
+/*@#public*/
 /** @file
     Linear ordered search. */
 #include <stddef.h>
@@ -11,13 +12,13 @@
     and `*pos_out` is set to the index of the smallest element greater than
     `key`.  `pos_out` is optional and can be null. */
 static inline
-int linear_ordered_search(const void *key,
-                          const void *ptr,
-                          size_t count,
-                          size_t size,
-                          int (*cmp)(void *, const void *, const void *),
-                          void *cmp_ctx,
-                          size_t *pos_out)
+int cal_linear_ordered_search(const void *key,
+                              const void *ptr,
+                              size_t count,
+                              size_t size,
+                              int (*cmp)(void *, const void *, const void *),
+                              void *cmp_ctx,
+                              size_t *pos_out)
 {
     int ret = 0;
     size_t i;
