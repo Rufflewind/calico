@@ -60,11 +60,17 @@ def make_test_rules(src_rules, extensions, root):
             os.path.relpath(dn, root),
             out_name
         )).replace("/", "-")
+        if ext == ".cpp":
+            test_name += "++"
         check_rule = make_run_test_rule(build_program("tmp/test-" + test_name, [
             compile_source(
                 src_fn,
-                extra_flags="$(TESTFLAGS)",
+                extra_flags=("$(TESTCPPFLAGS) " +
+                             ("$(TESTCXXFLAGS)"
+                              if src_fn.endswith(".cpp")
+                              else "$(TESTCFLAGS)")),
                 suffix="",
+                extension_suffix=True,
             ) for src_fn in src_fns
         ])).merge(src_rule, hint_merger=do_nothing)
         bench_rule = None
@@ -72,8 +78,12 @@ def make_test_rules(src_rules, extensions, root):
             bench_rule = build_program("tmp/bench-" + test_name, [
                 compile_source(
                     src_fn,
-                    extra_flags="$(BENCHFLAGS)",
+                    extra_flags=("$(BENCHCPPFLAGS) " +
+                                 ("$(BENCHCXXFLAGS)"
+                                  if src_fn.endswith(".cpp")
+                                  else "$(BENCHCFLAGS)")),
                     suffix="_bench",
+                    extension_suffix=True,
                 ) for src_fn in src_fns
             ]).merge(src_rule, hint_merger=do_nothing)
         yield check_rule, bench_rule
@@ -95,9 +105,9 @@ root = "src"
 
 srcs = get_all_files(root)
 
-ppedsrc_rules = list(make_preprocess_rules(srcs, [".c", ".h"]))
+ppedsrc_rules = list(make_preprocess_rules(srcs, [".c", ".cpp", ".h"]))
 
-test_rules = list(make_test_rules(ppedsrc_rules, [".c"], root))
+test_rules = list(make_test_rules(ppedsrc_rules, [".c", ".cpp"], root))
 
 build_rule = alias("build", list(make_build_rules(ppedsrc_rules, root)))
 
@@ -115,8 +125,10 @@ alias("all", [
 ]).merge(
     doc_rule,
     Ruleset(macros={
-        "BENCHFLAGS": "-g -Wall -O3 -DBENCH -DNDEBUG",
-        "TESTFLAGS": ("-g -Wall -Wextra -Wconversion -pedantic "
-                      "-std=c11 -D_POSIX_C_SOURCE=199309L"),
+        "BENCHCPPFLAGS": "-g -Wall -O3 -DBENCH -DNDEBUG",
+        "TESTCPPFLAGS": ("-g -Wall -Wextra -Wconversion -pedantic "
+                         "-D_POSIX_C_SOURCE=199309L"),
+        "TESTCFLAGS": "-std=c11",
+        "TESTCXXFLAGS": "-std=c++11",
     }),
 ).save()

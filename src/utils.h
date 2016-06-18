@@ -24,6 +24,9 @@ void black_box_u(unsigned);
 
 #define TIME(name, repeats)
 
+#define black_box(x) (void)(x)
+#define black_box_u(x) (void)(x)
+
 #endif
 
 #ifdef BENCH

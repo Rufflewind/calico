@@ -36,7 +36,7 @@ private:
 #define ValueType value_type
 #define MinArity MinArity
 #define CompareFunction _cmp
-#define SearchFunction linear_ordered_search
+#define SearchFunction cal_linear_ordered_search
 #include "btree_template.h"
 
     typedef ebo_wrapper<key_compare, _btree> _internal_type;
