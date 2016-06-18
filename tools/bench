@@ -19,12 +19,14 @@ def print_stats(name, ts, cols):
           "{mean:.1f} +/- {sdom:.1f} ns; std = {std:.1f}".format(**locals()))
 
 p = argparse.ArgumentParser()
-p.add_argument("-n", "--num-repeats", default=4)
-p.add_argument("command", default="./a.out")
+p.add_argument("-n", default=4,
+               help="number of times to run the program; default: 4")
+p.add_argument("command", nargs="?", default="./a.out",
+               help="benchmark program to execute; default: ./a.out")
 args = p.parse_args()
 
 times = {}
-for i in range(int(args.num_repeats)):
+for i in range(int(args.n)):
     d = parse_kvs(subprocess.check_output([args.command]).decode("utf-8"))
     for key, t in d.items():
         m = re.match("time_(.*)", key)
@@ -37,7 +39,9 @@ for i in range(int(args.num_repeats)):
             ts = []
             times[name] = ts
         ts.append(float(t))
-
+if not times:
+    raise Exception("didn't find any timings from output of {0}"
+                    .format(args.command))
 max_name_len = max(map(len, times))
 for name, ts in sorted(times.items()):
     print_stats(name, ts, max_name_len)

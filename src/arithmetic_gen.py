@@ -32,17 +32,44 @@ binop_guard_typedef_entry = lambda operation, type: """
 
 docs = lambda operation, type: {
 
+    "add": """
+/** Adds two integers. */
+"""[1:],
+
+    "sub": """
+/** Subtracts two integers. */
+"""[1:],
+
+    "mul": """
+/** Multiplies two integers. */
+"""[1:],
+
+    "div": """
+/** Divides two integers, with the quotient rounded towards zero. */
+"""[1:],
+
+    "mod": """
+/** Calculates the modulo of two integers, with the quotient rounded towards
+    zero. */
+"""[1:],
+
+    "abs": """
+/** Calculates the absolute value. */
+"""[1:],
+
     "unsafe_divfloor": """
-/** Calculate floored division and modulus where the quotient is rounded
+/** Calculates floored division and modulus where the quotient is rounded
     towards minus infinity.  UNSAFE: the result must not overflow. */
 """[1:],
 
     "divfloor": """
-/** Calculate floored division and modulus where the quotient is rounded
+/** Calculates floored division and modulus where the quotient is rounded
     towards minus infinity. */
 """[1:],
 
 }.get(operation, "")
+
+convdoc = "/** Convert from `{srctype}` to `{dsttype}`. */"
 
 operation_body = lambda operation, type: {
 
@@ -305,6 +332,7 @@ for srctype, dsttype in convtypes:
     name = construct_conv_name(srctype, dsttype)
     if cur_guard:
         write("#ifdef {0}\n".format(" && ".join(cur_guard)))
+    write(convdoc.format(**locals()))
     if qualifiers:
         write(qualifiers)
         write("\n")

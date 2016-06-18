@@ -1,4 +1,6 @@
 /*@#public*/
+/** @file
+    Compatibility header for `inline`. */
 #ifdef CAL_INLINE_DEFINED
 # error "must not include begin header twice in succession"
 #else

@@ -13,7 +13,11 @@
 extern "C" {
 #endif
 /*@#public*/
+/*@depends(["arithmetic_gen.py"])*/
 /*@exec(open("arithmetic_gen.py").read(), globals(), globals())*/
+/** @file
+    Checked arithmetic functions.  All functions return zero on success, and
+    nonzero on failure. */
 #ifdef __cplusplus
 }
 #endif

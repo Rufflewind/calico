@@ -1,4 +1,6 @@
 /*@#public*/
+/** @file
+    Compatibility header for `noreturn`. */
 #if !defined CAL_NORETURN_DEFINED
 # error "must not include end header without matching begin"
 #elif CAL_NORETURN_DEFINED

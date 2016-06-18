@@ -1,32 +1,42 @@
+# Calico
+
+**Quick links**: [documentation](https://rufflewind.com/calico).
+
 ## Headers
 
-Note: when including, all headers should be prefixed with `calico/`.
+**Note**: when including, all headers should be prefixed with `calico/`.
 
 ### Ordinary headers
 
-  - `bsearch.h`: typeless binary search
+  - `arithmetic.h`: checked arithmetic.
+  - `binary_search.h`: binary search algorithm.
+  - `linear_ordered_search.h`: linear search through an ordered array.
+  - `macros.h`: utility macros.
+  - `shuffle.h`: random shuffle algorithm.
+  - `wclock.h`: monotonic wall clock.
 
 ### Template headers
 
-  - `cmp_Type.h` defines a comparison function using the built-in semantics
-    (hence, it only works on fundamental types).
-
-  - `cmpg_Type.h` (requires `cmp_Type` defined via `cmp_Type.h` or manually)
-    defines a typeless comparison function.
-
-  - `bsearch_Type` (requires `cmpg_Type` defined via `cmpg_Type.h` or manually)
-    defines a set of typed binary search functions.
+  - `btree_template.h` defines a B-tree data type and its associated
+    functions.  It can be used as an associative array container (map).  It
+    can also be used as a set, if the macro `Value` is left undefined.
 
 ### Compatibility headers
 
   - `compat/alignas_begin.h` and `compat/alignas_end.h`: define `alignas` if
     available.  Otherwise, unless `RF_ALIGNAS_OPTIONAL` is defined, fail with
-    an `#error`.
+    a preprocessor error.
+
+  - `compat/restrict_begin.h` and `compat/restrict_end.h`: define `restrict`
+    if available.  Otherwise, fall back to nothing.
 
   - `compat/inline_begin.h` and `compat/inline_end.h`: define `inline` if
     available.  Otherwise, fall back to `static`.
 
   - `compat/noreturn_begin.h` and `compat/noreturn_end.h`: define `noreturn`
+    if available.  Otherwise, fall back to nothing.
+
+  - `compat/restrict_begin.h` and `compat/restrict_end.h`: define `restrict`
     if available.  Otherwise, fall back to nothing.
 
   - `compat/static_assert_begin.h` and `compat/static_assert_end.h`: define
@@ -36,33 +46,39 @@ Note: when including, all headers should be prefixed with `calico/`.
 
 ### Template headers
 
-All template headers that accept a type expect the macro `Type` to be in the
-form:
+Template headers are special C headers that can be included multiple times.
+They generally expect some arguments, which are supplied through parameter
+macros.  As an example, consider the `btree_template.h` header, which can be
+used like this:
 
 ~~~c
-#define Type(x) my_type x
+#include <calico/btree_head.h>
+
+#define Prefix foo
+#define KeyType int
+#define ValueType double
+#include <calico/btree_template.h>
 ~~~
 
-One can optionally specify `Type_Suffix` to change the suffix on the
-identifiers (this is necessary for types with names consisting of more than
-one token).
+The *associated header* `btree_head.h` *must be included at least once* before
+any inclusions of the `btree_template.h` header.  Including `btree_head.h`
+more than once is unnecessary but not harmful either.
 
-The macros, if explicitly defined, need to undefined afterwards manually.
+After including `btree_template.h`, the parameter macros (`Prefix`, `KeyType`,
+and `ValueType`) are automatically undefined.
 
-Typical usage:
-
-~~~c
-#define Type(x) int x
-#include <calico/cmp_Type.h>
-#include <calico/bsearch_Type.h>
-#undef Type
-~~~
+Typically, `Prefix` macro specifies the prefix that is attached to all
+identifiers related to the template header.  For example, the example above
+causes the type `foo_btree` to be defined, as well as functions such as
+`foo_btree_insert`.
 
 ### Scoped headers
 
-These headers come in `_begin` and `_end` pairs.  Generally it is a good idea
-to keep the scope of these headers as small as possible to avoid clashing with
-other headers.
+These headers come in `*_begin.h` and `*_end.h` pairs.  The purpose of such
+headers is to minimize the risk of naming collisions, and hence it is a good
+idea to keep the scope of these headers as small as possible to avoid clashing
+with other headers.  Nested inclusion of the same scoped headers is not
+allowed.
 
 Typical usage in a header file:
 
@@ -85,7 +101,8 @@ extern "C" {
 #endif
 ~~~
 
-Typical usage in a non-header file:
+In a non-header file (`.c` or `.cpp`), one can be more lenient and simply use
+the `*_begin.h` without the corresponding `*_end.h`.  For example:
 
 ~~~c
 #include <stdio.h>
@@ -93,6 +110,4 @@ Typical usage in a non-header file:
 #include <calico/compat/foobar_begin.h>
 
 /* source code ... */
-
-// optional: #include <calico/compat/foobar_end.h>
 ~~~

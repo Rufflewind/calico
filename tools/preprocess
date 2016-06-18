@@ -85,7 +85,9 @@ def prepend_prefix(s,
         )
     return s
 
-def make_public():
+def depends(_ignored):
+    '''Dependency information.  The preprocessor itself doesn't actually use
+    it.  It's used by the Makefile generator though.'''
     return ""
 
 def make_template(fn,

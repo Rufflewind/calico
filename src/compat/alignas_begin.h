@@ -1,4 +1,6 @@
 /*@#public*/
+/** @file
+    Compatibility header for `alignas`. */
 #ifdef CAL_ALIGNAS_DEFINED
 # error "must not include begin header twice in succession"
 #else
