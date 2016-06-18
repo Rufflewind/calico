@@ -11,8 +11,14 @@ def make_preprocess_rules(fns, extensions):
         name, ext = os.path.splitext(os.path.basename(fn))
         if ext not in extensions:
             continue
+        hint = {"deps": [], "public": False}
         with open(fn, "rt") as f:
-            public = "/*@#public*/" in f.read(4096)
+            s = f.read(4096)
+            if "/*@#public*/" in s:
+                hint["public"] = True
+            m = re.search(r"/\*@#depends:([^*]*)\*/", s)
+            if m:
+                hint["deps"] = m.group(1).split()
         m = re.match("(.*)_in$", name)
         if m:
             out_name, = m.groups()
@@ -21,13 +27,10 @@ def make_preprocess_rules(fns, extensions):
                 ["tools/pp preproc >$@ " + fn],
                 out_fn,
                 [fn],
-                hint={"public": public},
+                hint=hint,
             )
         else:
-            yield plain_file(fn, hint={"public": public})
-
-TEST_FLAGS = ["-g", "-Wall", "-Wextra", "-Wconversion", "-pedantic",
-              "-std=c11", "-D_POSIX_C_SOURCE=199309L"]
+            yield plain_file(fn, hint=hint)
 
 def make_run_test_rule(program_ruleset):
     return simple_command("valgrind $(VALGRINDFLAGS) {0}",
@@ -44,25 +47,29 @@ def make_test_rules(src_rules, extensions, root):
         if not m:
             continue
         out_name, = m.groups()
-        out_fn = ("tmp/test-" +
-                  snormpath(os.path.join(
-                      os.path.relpath(os.path.dirname(fn), root),
-                      out_name
-                  )).replace("/", "-"))
-        print(build_program(out_fn, [
-            compile_source(
-                fn,
-                extra_flags=TEST_FLAGS,
-                no_mangle=True,
-            ),
-        ]))
-        yield make_run_test_rule(build_program(out_fn, [
-            compile_source(
-                fn,
-                extra_flags=TEST_FLAGS,
-                no_mangle=True,
-            ),
-        ])).merge(src_rule, hint_merger=do_nothing)
+        dn = os.path.dirname(fn)
+        src_fns = [fn] + [snormpath(os.path.join(dn, bn))
+                          for bn in src_rule.hint["deps"]]
+        test_name = snormpath(os.path.join(
+            os.path.relpath(dn, root),
+            out_name
+        )).replace("/", "-")
+        yield (
+            make_run_test_rule(build_program("tmp/test-" + test_name, [
+                compile_source(
+                    src_fn,
+                    extra_flags="$(TESTFLAGS)",
+                    suffix="",
+                ) for src_fn in src_fns
+            ])).merge(src_rule, hint_merger=do_nothing),
+            build_program("tmp/bench-" + test_name, [
+                compile_source(
+                    src_fn,
+                    extra_flags="$(BENCHFLAGS)",
+                    suffix="_bench",
+                ) for src_fn in src_fns
+            ]).merge(src_rule, hint_merger=do_nothing),
+        )
 
 def make_build_rules(src_rules, root):
     for src_rule in src_rules:
@@ -87,13 +94,21 @@ test_rules = list(make_test_rules(ppedsrc_rules, [".c"], root))
 
 build_rule = alias("build", list(make_build_rules(ppedsrc_rules, root)))
 
-check_rule = alias("check", list(test_rules))
+build_bench_rule = alias("build-bench", [x[1] for x in test_rules])
+
+check_rule = alias("check", [x[0] for x in test_rules])
 
 doc_rule = simple_command("doxygen", "doc", [build_rule], phony=True)
 
 alias("all", [
     build_rule,
+    build_bench_rule,
     check_rule,
 ]).merge(
     doc_rule,
+    Ruleset(macros={
+        "BENCHFLAGS": "-g -Wall -O3 -DBENCH -DNDEBUG",
+        "TESTFLAGS": ("-g -Wall -Wextra -Wconversion -pedantic "
+                       "-std=c11 -D_POSIX_C_SOURCE=199309L"),
+    }),
 ).save()
