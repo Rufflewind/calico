@@ -11,11 +11,17 @@ def make_preprocess_rules(fns, extensions):
         name, ext = os.path.splitext(os.path.basename(fn))
         if ext not in extensions:
             continue
-        hint = {"deps": [], "public": False}
+        hint = {
+            "bench": False,
+            "deps": [],
+            "public": False,
+        }
         with open(fn, "rt") as f:
             s = f.read(4096)
             if "/*@#public*/" in s:
                 hint["public"] = True
+            if "/*@#bench*/" in s:
+                hint["bench"] = True
             m = re.search(r"/\*@#depends:([^*]*)\*/", s)
             if m:
                 hint["deps"] = m.group(1).split()
@@ -54,22 +60,23 @@ def make_test_rules(src_rules, extensions, root):
             os.path.relpath(dn, root),
             out_name
         )).replace("/", "-")
-        yield (
-            make_run_test_rule(build_program("tmp/test-" + test_name, [
-                compile_source(
-                    src_fn,
-                    extra_flags="$(TESTFLAGS)",
-                    suffix="",
-                ) for src_fn in src_fns
-            ])).merge(src_rule, hint_merger=do_nothing),
-            build_program("tmp/bench-" + test_name, [
+        check_rule = make_run_test_rule(build_program("tmp/test-" + test_name, [
+            compile_source(
+                src_fn,
+                extra_flags="$(TESTFLAGS)",
+                suffix="",
+            ) for src_fn in src_fns
+        ])).merge(src_rule, hint_merger=do_nothing)
+        bench_rule = None
+        if src_rule.hint["bench"]:
+            bench_rule = build_program("tmp/bench-" + test_name, [
                 compile_source(
                     src_fn,
                     extra_flags="$(BENCHFLAGS)",
                     suffix="_bench",
                 ) for src_fn in src_fns
-            ]).merge(src_rule, hint_merger=do_nothing),
-        )
+            ]).merge(src_rule, hint_merger=do_nothing)
+        yield check_rule, bench_rule
 
 def make_build_rules(src_rules, root):
     for src_rule in src_rules:
@@ -94,7 +101,8 @@ test_rules = list(make_test_rules(ppedsrc_rules, [".c"], root))
 
 build_rule = alias("build", list(make_build_rules(ppedsrc_rules, root)))
 
-build_bench_rule = alias("build-bench", [x[1] for x in test_rules])
+build_bench_rule = alias("build-bench", [x[1] for x in test_rules
+                                         if x[1] is not None])
 
 check_rule = alias("check", [x[0] for x in test_rules])
 
@@ -109,6 +117,6 @@ alias("all", [
     Ruleset(macros={
         "BENCHFLAGS": "-g -Wall -O3 -DBENCH -DNDEBUG",
         "TESTFLAGS": ("-g -Wall -Wextra -Wconversion -pedantic "
-                       "-std=c11 -D_POSIX_C_SOURCE=199309L"),
+                      "-std=c11 -D_POSIX_C_SOURCE=199309L"),
     }),
 ).save()

@@ -1,3 +1,4 @@
+/*@#bench*/
 /*@#depends:black_box.c*/
 #include <stddef.h>
 #include "utils.h"
