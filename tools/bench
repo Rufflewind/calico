@@ -4,12 +4,14 @@ import numpy as np
 
 def parse_kvs(s):
     d = {}
+    ks = []
     for line in s.split("\n"):
         if "=" not in line:
             continue
         k, v = line.split("=", 1)
+        ks.append(k)
         d[k.strip()] = v.strip()
-    return d
+    return d, ks
 
 def print_stats(name, ts, cols):
     mean = np.mean(ts) * 1e9
@@ -21,27 +23,29 @@ def print_stats(name, ts, cols):
 p = argparse.ArgumentParser()
 p.add_argument("-n", default=4,
                help="number of times to run the program; default: 4")
-p.add_argument("command", nargs="?", default="./a.out",
+p.add_argument("command", metavar="arg", nargs="*", default=["./a.out"],
                help="benchmark program to execute; default: ./a.out")
 args = p.parse_args()
 
 times = {}
 for i in range(int(args.n)):
-    d = parse_kvs(subprocess.check_output([args.command]).decode("utf-8"))
-    for key, t in d.items():
+    d, ks = parse_kvs(subprocess.check_output(args.command).decode("utf-8"))
+    names = []
+    for key in ks:
         m = re.match("time_(.*)", key)
         if not m:
             continue
         name = m.group(1)
+        names.append(name)
         try:
             ts = times[name]
         except KeyError:
             ts = []
             times[name] = ts
-        ts.append(float(t))
+        ts.append(float(d[key]))
 if not times:
     raise Exception("didn't find any timings from output of {0}"
                     .format(args.command))
 max_name_len = max(map(len, times))
-for name, ts in sorted(times.items()):
-    print_stats(name, ts, max_name_len)
+for name in names:
+    print_stats(name, times[name], max_name_len)

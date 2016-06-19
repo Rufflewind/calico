@@ -8,6 +8,7 @@
 #endif
 #endif
 /*@#public:btree_impl.h*/
+/*@depends(["btree_impl.h"])*/
 /*@
 make_template(
     "btree_impl.h",

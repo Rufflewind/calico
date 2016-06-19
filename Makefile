@@ -125,16 +125,16 @@ src/arithmetic.h: src/arithmetic_gen.py src/arithmetic_in.h
 src/binary_search_test.c.o: src/binary_search.h src/binary_search_test.c src/compat/inline_begin.h src/compat/inline_end.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/binary_search_test.c
 
-src/black_box.c.o: src/black_box.c
+src/black_box.c.o: src/black_box.c src/compat/inline_begin.h src/compat/inline_end.h src/utils.h src/wclock.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/black_box.c
 
-src/black_box_bench.c.o: src/black_box.c
+src/black_box_bench.c.o: src/black_box.c src/compat/inline_begin.h src/compat/inline_end.h src/utils.h src/wclock.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(BENCHCPPFLAGS) $(BENCHCFLAGS) -c -o $@ src/black_box.c
 
 src/btree.h: src/btree_in.h
 	tools/preprocess preproc >$@ src/btree_in.h
 
-src/btree_template.h: src/btree_template_in.h
+src/btree_template.h: src/btree_impl.h src/btree_template_in.h
 	tools/preprocess preproc >$@ src/btree_template_in.h
 
 src/btree_test.c.o: src/binary_search.h src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_test.c src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/utils.h src/wclock.h

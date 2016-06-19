@@ -122,11 +122,14 @@ void test_random(zd_btree *t,
     }
     for (i = 0; i < count; ++i) {
         size_t k = (unsigned)rand() % range;
-        zd_btree_get(t, &k);
+        double *v = zd_btree_get(t, &k);
+        if (v) {
+            assert(*v == (double)(range - k));
+        }
     }
     l = zd_btree_len(t);
 
-    keys = (size_t *)malloc(l * sizeof(*keys));
+    keys = malloc(l * sizeof(*keys));
     prev_key = -1;
     for (zd_btree_find_first(t, &entry);
          zd_btree_entry_occupied(t, &entry);
@@ -170,14 +173,12 @@ void test_random(zd_btree *t,
 
 static
 void bench_random(zd_btree *t,
-                  unsigned seed,
                   unsigned range,
                   unsigned count)
 {
     char name[512];
     unsigned i;
-    srand(seed);
-    snprintf(name, sizeof(name), "random_inserts_%u_%u", range, count);
+    snprintf(name, sizeof(name), "inserts_random_%u_%u", range, count);
     TIME(name, count) {
         for (i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % range;
@@ -189,7 +190,7 @@ void bench_random(zd_btree *t,
 #endif
         }
     }
-    snprintf(name, sizeof(name), "random_lookups_%u_%u", range, count);
+    snprintf(name, sizeof(name), "lookups_random_%u_%u", range, count);
     TIME(name, count) {
         for (i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % range;
@@ -204,7 +205,7 @@ void bench_random(zd_btree *t,
         }
     }
     printf("len_%u_%u=%zu\n", range, count, zd_btree_len(t));
-    snprintf(name, sizeof(name), "sequential_lookups_%u_%u", range, count);
+    snprintf(name, sizeof(name), "lookups_sequential_%u_%u", range, count);
     zd_btree_entry entry;
     TIME(name, zd_btree_len(t)) {
         for (zd_btree_find_first(t, &entry);
@@ -214,7 +215,7 @@ void bench_random(zd_btree *t,
                         (unsigned)*zd_btree_entry_get(&entry));
         }
     }
-    snprintf(name, sizeof(name), "random_deletes_%u_%u", range, count);
+    snprintf(name, sizeof(name), "deletes_random_%u_%u", range, count);
     unsigned ri = 0;
     TIME(name, ri) {
         while (zd_btree_len(t)) {
@@ -226,16 +227,16 @@ void bench_random(zd_btree *t,
     printf("count_random_deletes_%u_%u=%u\n", range, count, ri);
 }
 
-void bench_random_ir(unsigned seed, unsigned count)
+static
+void bench_insertremove_random(unsigned count)
 {
     char name[512];
     zz_btree bt, *t = &bt;
     unsigned i;
 
-    srand(seed);
     zz_btree_init(t);
 
-    snprintf(name, sizeof(name), "random_ir_ins_%u", count);
+    snprintf(name, sizeof(name), "insert_random_%u", count);
     TIME(name, count) {
         for (i = 0; i < count; ++i) {
             size_t k = (unsigned)rand() % count;
@@ -243,7 +244,7 @@ void bench_random_ir(unsigned seed, unsigned count)
         }
     }
 
-    snprintf(name, sizeof(name), "random_ir_%u", count);
+    snprintf(name, sizeof(name), "insertremove_random_%u", count);
     TIME(name, 1000000) {
         for (i = 0; i < 1000000; ++i) {
             size_t k = (unsigned)rand() % count;
@@ -255,7 +256,8 @@ void bench_random_ir(unsigned seed, unsigned count)
     black_box(t);
 }
 
-void bench_sequential_ir(unsigned count)
+static
+void bench_insertremove_sequential(unsigned count)
 {
     char name[512];
     zz_btree bt, *t = &bt;
@@ -263,7 +265,7 @@ void bench_sequential_ir(unsigned count)
 
     zz_btree_init(t);
 
-    snprintf(name, sizeof(name), "sequential_ir_ins_%u", count);
+    snprintf(name, sizeof(name), "insert_sequential_%u", count);
     TIME(name, count) {
         for (i = 0; i < count; ++i) {
             size_t k = i * 2;
@@ -271,7 +273,7 @@ void bench_sequential_ir(unsigned count)
         }
     }
 
-    snprintf(name, sizeof(name), "sequential_ir_%u", count);
+    snprintf(name, sizeof(name), "insertremove_sequential_%u", count);
     TIME(name, 1000000) {
         size_t k = 1;
         for (i = 0; i < 1000000; ++i) {
@@ -283,6 +285,102 @@ void bench_sequential_ir(unsigned count)
 
     black_box(t);
 }
+
+static
+size_t randfunc(void *ctx, size_t max)
+{
+    (void)ctx;
+    return (size_t)rand() % (max + 1);
+}
+
+static
+void bench_get_random(size_t count)
+{
+    char name[512];
+    zz_btree bt, *t = &bt;
+    size_t i, j, n = 1000000;
+    size_t tmp, *keys = malloc(count * sizeof(*keys));
+
+    zz_btree_init(t);
+
+    for (i = 0; i < count; ++i) {
+        keys[i] = rand() % count;
+    }
+
+    for (i = 0; i < count; ++i) {
+        zz_btree_insert(t, keys + i, keys + i, NULL);
+    }
+
+    cal_shuffle(keys, count, sizeof(*keys), &tmp, &randfunc, NULL);
+
+    snprintf(name, sizeof(name), "bench_get_random_%zu", count);
+    j = 0;
+    TIME(name, n) {
+        size_t k = 0;
+        for (i = 0; i < n; ++i) {
+            j += *zz_btree_get(t, keys + k);
+            k = (k + 1) % count;
+        }
+    }
+    black_box_z(j);
+
+    free(keys);
+}
+
+static
+void bench_get_sequential(size_t count)
+{
+    char name[512];
+    zz_btree bt, *t = &bt;
+    size_t i, j, n = 1000000;
+
+    zz_btree_init(t);
+
+    for (i = 0; i < count; ++i) {
+        zz_btree_insert(t, &i, &i, NULL);
+    }
+
+    snprintf(name, sizeof(name), "bench_get_sequential_%zu", count);
+    j = 0;
+    TIME(name, n) {
+        size_t k = 0;
+        for (i = 0; i < n; ++i) {
+            j += *zz_btree_get(t, &k);
+            k = (k + 1) % count;
+        }
+    }
+    black_box_z(j);
+}
+
+static
+void bench_iteration(size_t count)
+{
+    char name[512];
+    zz_btree bt, *t = &bt;
+    size_t i, j, n = 100;
+
+    zz_btree_init(t);
+
+    for (i = 0; i < count; ++i) {
+        size_t k = rand(), v = rand();
+        zz_btree_insert(t, &k, &v, NULL);
+    }
+
+    snprintf(name, sizeof(name), "bench_iteration_%zu", count);
+    j = 0;
+    zz_btree_entry entry;
+    TIME(name, n) {
+        for (i = 0; i < n; ++i) {
+            for (zz_btree_find_first(t, &entry);
+                 zz_btree_entry_occupied(t, &entry);
+                 zz_btree_entry_next(t, &entry)) {
+                j += *zz_btree_entry_get(&entry);
+            }
+        }
+    }
+    black_box_z(j);
+}
+
 #endif
 
 int main(void)
@@ -315,11 +413,27 @@ int main(void)
 
 #else
 
-    bench_random_ir(1, 100);
-    bench_random_ir(2, 10000);
-    bench_sequential_ir(100);
-    bench_sequential_ir(10000);
-    bench_random(t, 80, MAX, MAX);
+    srand(1);
+    bench_insertremove_random(100);
+    srand(2);
+    bench_insertremove_random(10000);
+    srand(3);
+    bench_get_random(100);
+    srand(4);
+    bench_get_random(10000);
+
+    bench_insertremove_sequential(100);
+    bench_insertremove_sequential(10000);
+    bench_get_sequential(100);
+    bench_get_sequential(10000);
+
+    srand(5);
+    bench_iteration(20);
+    bench_iteration(1000);
+    bench_iteration(100000);
+
+    srand(80);
+    bench_random(t, MAX, MAX);
 
 #endif
 

@@ -557,8 +557,7 @@ static inline
 ValueType *btree_get(btree *m, const KeyType *k)
 {
     ChildIndexType i;
-    leaf_node *n;
-    n = get_node(m, k, &i);
+    leaf_node *n = get_node(m, k, &i);
     if (!n) {
         return NULL;
     }

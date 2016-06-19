@@ -19,6 +19,15 @@ static double clk_time;
 /* black boxes to prevent optimizations */
 void black_box(void *);
 void black_box_u(unsigned);
+void black_box_z(size_t);
+
+static inline
+void utils_unused(void)
+{
+    (void)clk;
+    (void)clk_time;
+    (void)timing_counter;
+}
 
 #else
 
@@ -26,6 +35,7 @@ void black_box_u(unsigned);
 
 #define black_box(x) (void)(x)
 #define black_box_u(x) (void)(x)
+#define black_box_z(x) (void)(x)
 
 #endif
 
