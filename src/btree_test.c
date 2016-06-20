@@ -236,12 +236,9 @@ void bench_insertremove_random(unsigned count)
 
     zz_btree_init(t);
 
-    snprintf(name, sizeof(name), "insert_random_%u", count);
-    TIME(name, count) {
-        for (i = 0; i < count; ++i) {
-            size_t k = (unsigned)rand() % count;
-            zz_btree_insert(t, &k, &k, NULL);
-        }
+    for (i = 0; i < count; ++i) {
+        size_t k = (unsigned)rand() % count;
+        zz_btree_insert(t, &k, &k, NULL);
     }
 
     snprintf(name, sizeof(name), "insertremove_random_%u", count);
@@ -265,12 +262,9 @@ void bench_insertremove_sequential(unsigned count)
 
     zz_btree_init(t);
 
-    snprintf(name, sizeof(name), "insert_sequential_%u", count);
-    TIME(name, count) {
-        for (i = 0; i < count; ++i) {
-            size_t k = i * 2;
-            zz_btree_insert(t, &k, &k, NULL);
-        }
+    for (i = 0; i < count; ++i) {
+        size_t k = i * 2;
+        zz_btree_insert(t, &k, &k, NULL);
     }
 
     snprintf(name, sizeof(name), "insertremove_sequential_%u", count);
@@ -313,7 +307,7 @@ void bench_get_random(size_t count)
 
     cal_shuffle(keys, count, sizeof(*keys), &tmp, &randfunc, NULL);
 
-    snprintf(name, sizeof(name), "bench_get_random_%zu", count);
+    snprintf(name, sizeof(name), "get_random_%zu", count);
     j = 0;
     TIME(name, n) {
         size_t k = 0;
@@ -340,7 +334,7 @@ void bench_get_sequential(size_t count)
         zz_btree_insert(t, &i, &i, NULL);
     }
 
-    snprintf(name, sizeof(name), "bench_get_sequential_%zu", count);
+    snprintf(name, sizeof(name), "get_sequential_%zu", count);
     j = 0;
     TIME(name, n) {
         size_t k = 0;
@@ -366,7 +360,7 @@ void bench_iteration(size_t count)
         zz_btree_insert(t, &k, &v, NULL);
     }
 
-    snprintf(name, sizeof(name), "bench_iteration_%zu", count);
+    snprintf(name, sizeof(name), "iteration_%zu", count);
     j = 0;
     zz_btree_entry entry;
     TIME(name, n) {
@@ -414,18 +408,20 @@ int main(void)
 #else
 
     srand(1);
-    bench_insertremove_random(100);
-    srand(2);
-    bench_insertremove_random(10000);
-    srand(3);
     bench_get_random(100);
-    srand(4);
+    srand(2);
     bench_get_random(10000);
+
+    bench_get_sequential(100);
+    bench_get_sequential(10000);
+
+    srand(3);
+    bench_insertremove_random(100);
+    srand(4);
+    bench_insertremove_random(10000);
 
     bench_insertremove_sequential(100);
     bench_insertremove_sequential(10000);
-    bench_get_sequential(100);
-    bench_get_sequential(10000);
 
     srand(5);
     bench_iteration(20);
