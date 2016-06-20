@@ -6,19 +6,33 @@ def parse_kvs(s):
     d = {}
     ks = []
     for line in s.split("\n"):
-        if "=" not in line:
+        if line.startswith("#") or "=" not in line:
             continue
         k, v = line.split("=", 1)
         ks.append(k)
         d[k.strip()] = v.strip()
     return d, ks
 
-def print_stats(name, ts, cols):
+def format_table(alignments, table):
+    num_cols = len(table[0])
+    max_widths = [0] * num_cols
+    for row in table:
+        for i, value in enumerate(row):
+            max_widths[i] = max(max_widths[i], len(value))
+    return "".join(
+        "".join(
+            format(value, alignment + str(max_width))
+            for alignment, max_width, value in
+            zip(alignments, max_widths, row)
+        ) + "\n"
+        for row in table
+    )
+
+def get_stats(name, ts):
     mean = np.mean(ts) * 1e9
     std = np.std(ts) * 1e9
     sdom = std / len(ts) ** .5
-    print("{{name:{cols}}} = ".format(**locals()).format(**locals()) +
-          "{mean:.1f} +/- {sdom:.1f} ns; std = {std:.1f}".format(**locals()))
+    return (mean, sdom, std)
 
 p = argparse.ArgumentParser()
 p.add_argument("-n", default=4,
@@ -46,6 +60,19 @@ for i in range(int(args.n)):
 if not times:
     raise Exception("didn't find any timings from output of {0}"
                     .format(args.command))
-max_name_len = max(map(len, times))
-for name in names:
-    print_stats(name, times[name], max_name_len)
+
+sys.stdout.write(format_table(
+    ["<", "<", ">", "<", ">", "<", ">", "<"],
+    [(
+        name,
+        " = ",
+        format(mean, ".1f"),
+        " +/- ",
+        format(sdom, ".1f"),
+        " ns; std = ",
+        format(std, ".1f"),
+        " ns",
+    ) for name, (mean, sdom, std) in
+    ((name, get_stats(name, times[name])) for name in names)],
+))
+sys.stdout.flush()
