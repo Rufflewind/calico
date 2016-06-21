@@ -1,0 +1,8 @@
+language: c
+sudo: false
+matrix:
+  include:
+  - os: linux
+  - os: osx
+script:
+- make -j$((`nproc` + 1)) check
