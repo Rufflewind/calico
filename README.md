@@ -1,5 +1,13 @@
 # Calico
 
+[![Travis CI build status][ti]][tl]
+[![AppVeyor build status][ai]][al]
+
+[ti]: https://travis-ci.org/Rufflewind/calico.svg?branch=master
+[tl]: https://travis-ci.org/Rufflewind/calico
+[ai]: https://ci.appveyor.com/api/projects/status/github/Rufflewind/calico?branch=master&svg=true
+[al]: https://ci.appveyor.com/project/Rufflewind/calico
+
 **Quick links**: [documentation](https://rufflewind.com/calico).
 
 ## Headers
