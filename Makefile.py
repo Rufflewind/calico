@@ -183,7 +183,7 @@ alias("all", [
         "BENCHCPPFLAGS": "-g -Wall -O3 -DBENCH -DNDEBUG",
         "TESTCPPFLAGS": ("-g -Wall -Wextra -Wconversion -pedantic "
                          "-D_POSIX_C_SOURCE=199309L"),
-        "TESTCFLAGS": "-std=c11",
+        "TESTCFLAGS": "-std=c99",
         "TESTCXXFLAGS": "-std=c++11",
     }),
 ).save()
