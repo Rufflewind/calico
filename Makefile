@@ -5,19 +5,19 @@ TESTCXXFLAGS=-std=c++11
 
 all: build build-bench
 
-build: include/arithmetic.h include/binary_search.h include/btree.h include/btree_head.h include/btree_template.h include/compat/alignas_begin.h include/compat/alignas_end.h include/compat/alloca.h include/compat/inline_begin.h include/compat/inline_end.h include/compat/noreturn_begin.h include/compat/noreturn_end.h include/compat/restrict_begin.h include/compat/restrict_end.h include/compat/static_assert_begin.h include/compat/static_assert_end.h include/linear_ordered_search.h include/macros.h include/shuffle.h include/wclock.h
+build: include/arithmetic.h include/binary_search.h include/btree_head.h include/btree_impl.h include/btree_template.h include/compat/alignas_begin.h include/compat/alignas_end.h include/compat/alloca.h include/compat/inline_begin.h include/compat/inline_end.h include/compat/noreturn_begin.h include/compat/noreturn_end.h include/compat/restrict_begin.h include/compat/restrict_end.h include/compat/static_assert_begin.h include/compat/static_assert_end.h include/linear_ordered_search.h include/macros.h include/shuffle.h include/wclock.h
 
 build-bench: tmp/bench-btree tmp/bench-stdmap++
 
 check: run-test-binary_search run-test-btree run-test-btree++ run-test-shuffle run-test-stdmap++ run-test-wclock
 
 clean:
-	rm -fr -- include/arithmetic.h include/binary_search.h include/btree.h include/btree_head.h include/btree_template.h include/compat/alignas_begin.h include/compat/alignas_end.h include/compat/alloca.h include/compat/inline_begin.h include/compat/inline_end.h include/compat/noreturn_begin.h include/compat/noreturn_end.h include/compat/restrict_begin.h include/compat/restrict_end.h include/compat/static_assert_begin.h include/compat/static_assert_end.h include/linear_ordered_search.h include/macros.h include/shuffle.h include/wclock.h src/arithmetic.h src/binary_search_test.c.o src/black_box.c.o src/black_box_bench.c.o src/btree.h src/btree_template.h src/btree_test.c.o src/btree_test.cpp.o src/btree_test_bench.c.o src/shuffle_test.c.o src/stdmap_test.cpp.o src/stdmap_test_bench.cpp.o src/wclock_test.c.o tmp/bench-btree tmp/bench-stdmap++ tmp/doc-src/calico/arithmetic.h tmp/doc-src/calico/binary_search.h tmp/doc-src/calico/btree.h tmp/doc-src/calico/btree_head.h tmp/doc-src/calico/btree_template.h tmp/doc-src/calico/compat/alignas_begin.h tmp/doc-src/calico/compat/alignas_end.h tmp/doc-src/calico/compat/alloca.h tmp/doc-src/calico/compat/inline_begin.h tmp/doc-src/calico/compat/inline_end.h tmp/doc-src/calico/compat/noreturn_begin.h tmp/doc-src/calico/compat/noreturn_end.h tmp/doc-src/calico/compat/restrict_begin.h tmp/doc-src/calico/compat/restrict_end.h tmp/doc-src/calico/compat/static_assert_begin.h tmp/doc-src/calico/compat/static_assert_end.h tmp/doc-src/calico/linear_ordered_search.h tmp/doc-src/calico/macros.h tmp/doc-src/calico/shuffle.h tmp/doc-src/calico/wclock.h tmp/test-binary_search tmp/test-btree tmp/test-btree++ tmp/test-shuffle tmp/test-stdmap++ tmp/test-wclock
+	rm -fr -- include/arithmetic.h include/binary_search.h include/btree_head.h include/btree_impl.h include/btree_template.h include/compat/alignas_begin.h include/compat/alignas_end.h include/compat/alloca.h include/compat/inline_begin.h include/compat/inline_end.h include/compat/noreturn_begin.h include/compat/noreturn_end.h include/compat/restrict_begin.h include/compat/restrict_end.h include/compat/static_assert_begin.h include/compat/static_assert_end.h include/linear_ordered_search.h include/macros.h include/shuffle.h include/wclock.h src/arithmetic.h src/binary_search_test.c.o src/black_box.c.o src/black_box_bench.c.o src/btree_template.h src/btree_test.c.o src/btree_test.cpp.o src/btree_test_bench.c.o src/shuffle_test.c.o src/stdmap_test.cpp.o src/stdmap_test_bench.cpp.o src/wclock_test.c.o tmp/bench-btree tmp/bench-stdmap++ tmp/doc-src/calico/arithmetic.h tmp/doc-src/calico/binary_search.h tmp/doc-src/calico/btree_head.h tmp/doc-src/calico/btree_impl.h tmp/doc-src/calico/btree_template.h tmp/doc-src/calico/compat/alignas_begin.h tmp/doc-src/calico/compat/alignas_end.h tmp/doc-src/calico/compat/alloca.h tmp/doc-src/calico/compat/inline_begin.h tmp/doc-src/calico/compat/inline_end.h tmp/doc-src/calico/compat/noreturn_begin.h tmp/doc-src/calico/compat/noreturn_end.h tmp/doc-src/calico/compat/restrict_begin.h tmp/doc-src/calico/compat/restrict_end.h tmp/doc-src/calico/compat/static_assert_begin.h tmp/doc-src/calico/compat/static_assert_end.h tmp/doc-src/calico/linear_ordered_search.h tmp/doc-src/calico/macros.h tmp/doc-src/calico/shuffle.h tmp/doc-src/calico/wclock.h tmp/test-binary_search tmp/test-btree tmp/test-btree++ tmp/test-shuffle tmp/test-stdmap++ tmp/test-wclock
 
 deploy-doc: doc
 	[ -d doc/html/.git ] || ( url=`git remote -v | grep origin | awk '{ printf "%s", $$2; exit }'` &&mkdir -p doc/html && cd doc/html && git init && git config user.name Bot && git config user.email '<>' && git commit -m _ --allow-empty && git remote add origin "$$url" ) && cd doc/html && git add -A && git commit --amend -q -m Autogenerated && git push -f origin master:gh-pages
 
-doc: tmp/doc-src/calico/arithmetic.h tmp/doc-src/calico/binary_search.h tmp/doc-src/calico/btree.h tmp/doc-src/calico/btree_head.h tmp/doc-src/calico/btree_template.h tmp/doc-src/calico/compat/alignas_begin.h tmp/doc-src/calico/compat/alignas_end.h tmp/doc-src/calico/compat/alloca.h tmp/doc-src/calico/compat/inline_begin.h tmp/doc-src/calico/compat/inline_end.h tmp/doc-src/calico/compat/noreturn_begin.h tmp/doc-src/calico/compat/noreturn_end.h tmp/doc-src/calico/compat/restrict_begin.h tmp/doc-src/calico/compat/restrict_end.h tmp/doc-src/calico/compat/static_assert_begin.h tmp/doc-src/calico/compat/static_assert_end.h tmp/doc-src/calico/linear_ordered_search.h tmp/doc-src/calico/macros.h tmp/doc-src/calico/shuffle.h tmp/doc-src/calico/wclock.h
+doc: tmp/doc-src/calico/arithmetic.h tmp/doc-src/calico/binary_search.h tmp/doc-src/calico/btree_head.h tmp/doc-src/calico/btree_impl.h tmp/doc-src/calico/btree_template.h tmp/doc-src/calico/compat/alignas_begin.h tmp/doc-src/calico/compat/alignas_end.h tmp/doc-src/calico/compat/alloca.h tmp/doc-src/calico/compat/inline_begin.h tmp/doc-src/calico/compat/inline_end.h tmp/doc-src/calico/compat/noreturn_begin.h tmp/doc-src/calico/compat/noreturn_end.h tmp/doc-src/calico/compat/restrict_begin.h tmp/doc-src/calico/compat/restrict_end.h tmp/doc-src/calico/compat/static_assert_begin.h tmp/doc-src/calico/compat/static_assert_end.h tmp/doc-src/calico/linear_ordered_search.h tmp/doc-src/calico/macros.h tmp/doc-src/calico/shuffle.h tmp/doc-src/calico/wclock.h
 	tools/generate-doxygen-mainpage <README.md >tmp/doc-src/README.md
 	doxygen
 
@@ -47,13 +47,13 @@ include/binary_search.h: src/binary_search.h
 	@mkdir -p include
 	cp src/binary_search.h include/binary_search.h
 
-include/btree.h: src/btree.h
-	@mkdir -p include
-	cp src/btree.h include/btree.h
-
 include/btree_head.h: src/btree_head.h
 	@mkdir -p include
 	cp src/btree_head.h include/btree_head.h
+
+include/btree_impl.h: src/btree_impl.h
+	@mkdir -p include
+	cp src/btree_impl.h include/btree_impl.h
 
 include/btree_template.h: src/btree_template.h
 	@mkdir -p include
@@ -131,19 +131,16 @@ src/black_box.c.o: src/black_box.c src/compat/inline_begin.h src/compat/inline_e
 src/black_box_bench.c.o: src/black_box.c src/compat/inline_begin.h src/compat/inline_end.h src/utils.h src/wclock.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(BENCHCPPFLAGS) $(BENCHCFLAGS) -c -o $@ src/black_box.c
 
-src/btree.h: src/btree_in.h
-	tools/preprocess preproc >$@ src/btree_in.h
-
 src/btree_template.h: src/btree_impl.h src/btree_template_in.h
 	tools/preprocess preproc >$@ src/btree_template_in.h
 
-src/btree_test.c.o: src/binary_search.h src/btree_head.h src/btree_template.h src/btree_test.c src/compat/inline_begin.h src/compat/inline_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/utils.h src/wclock.h
+src/btree_test.c.o: src/binary_search.h src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_test.c src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/utils.h src/wclock.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/btree_test.c
 
-src/btree_test.cpp.o: src/btree.hpp src/btree_head.h src/btree_template.h src/btree_test.cpp src/compat/inline_begin.h src/compat/inline_end.h src/linear_ordered_search.h src/macros.h
+src/btree_test.cpp.o: src/btree.hpp src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_test.cpp src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(TESTCPPFLAGS) $(TESTCXXFLAGS) -c -o $@ src/btree_test.cpp
 
-src/btree_test_bench.c.o: src/binary_search.h src/btree_head.h src/btree_template.h src/btree_test.c src/compat/inline_begin.h src/compat/inline_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/utils.h src/wclock.h
+src/btree_test_bench.c.o: src/binary_search.h src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_test.c src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/utils.h src/wclock.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(BENCHCPPFLAGS) $(BENCHCFLAGS) -c -o $@ src/btree_test.c
 
 src/shuffle_test.c.o: src/shuffle.h src/shuffle_test.c
@@ -174,13 +171,13 @@ tmp/doc-src/calico/binary_search.h: src/binary_search.h
 	@mkdir -p tmp/doc-src/calico
 	cp src/binary_search.h tmp/doc-src/calico/binary_search.h
 
-tmp/doc-src/calico/btree.h: src/btree.h
-	@mkdir -p tmp/doc-src/calico
-	cp src/btree.h tmp/doc-src/calico/btree.h
-
 tmp/doc-src/calico/btree_head.h: src/btree_head.h
 	@mkdir -p tmp/doc-src/calico
 	cp src/btree_head.h tmp/doc-src/calico/btree_head.h
+
+tmp/doc-src/calico/btree_impl.h: src/btree_impl.h
+	@mkdir -p tmp/doc-src/calico
+	cp src/btree_impl.h tmp/doc-src/calico/btree_impl.h
 
 tmp/doc-src/calico/btree_template.h: src/btree_impl.h
 	@mkdir -p tmp/doc-src/calico
