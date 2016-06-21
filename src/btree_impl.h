@@ -1,3 +1,4 @@
+/*@#public*/
 /** @file
 
 Associative arrays implemented using B-trees.
@@ -108,6 +109,7 @@ enum {
 typedef struct {
     leaf_node *_nodestack[MAX_HEIGHT];
     ChildIndexType _istack[MAX_HEIGHT];
+    btree *_tree;
     HeightType _depth;
 } btree_entry;
 
@@ -268,8 +270,8 @@ void free_node(HeightType height, leaf_node *m)
     must manually iterate over each element and release them:
     ~~~c
     for (btree_find_first(m, &entry);
-         btree_entry_occupied(m, &entry);
-         btree_entry_next(m, &entry)) {
+         btree_entry_occupied(&entry);
+         btree_entry_next(&entry)) {
         free(btree_entry_key(&entry));
         free(btree_entry_get(&entry));
     }
@@ -338,6 +340,7 @@ void btree_find(btree *m, const KeyType *key, btree_entry *entry_out)
     assert(key);
     assert(entry_out);
     assert(height <= MAX_HEIGHT);
+    entry_out->_tree = m;
     entry_out->_depth = 0;
     if (height) {
         HeightType h = 0;
@@ -388,6 +391,7 @@ void find_extremum(btree *m, ChildIndexType which, btree_entry *entry_out)
 {
     HeightType height = m->_height;
     assert(height <= MAX_HEIGHT);
+    entry_out->_tree = m;
     entry_out->_depth = 0;
     if (height) {
         move_to_extremum(height, m->_root, which, &entry_out->_depth,
@@ -413,10 +417,10 @@ void btree_find_last(btree *m, btree_entry *entry_out)
 
 /** Returns whether a entry refers to an existing element. */
 static inline
-int btree_entry_occupied(const btree *m, const btree_entry *ent)
+int btree_entry_occupied(const btree_entry *ent)
 {
-    assert(ent->_depth <= m->_height); /* make sure it's valid */
-    return ent->_depth != m->_height;
+    assert(ent->_depth <= ent->_tree->_height); /* make sure it's valid */
+    return ent->_depth != ent->_tree->_height;
 }
 
 /** Gets a pointer to the key at an occupied entry.  If the entry is not
@@ -463,10 +467,11 @@ ValueType *btree_entry_get(const btree_entry *ent)
     undefined.  Returns `1` if the new entry is occupied, `0` if the new entry
     is vacant. */
 static inline
-int btree_entry_next(const btree *m, btree_entry *ent)
+int btree_entry_next(btree_entry *ent)
 {
+    btree *m = ent->_tree;
     HeightType height = m->_height;
-    assert(btree_entry_occupied(m, ent));
+    assert(btree_entry_occupied(ent));
     ++ent->_istack[ent->_depth];
     if (ent->_depth < height - 1) {
         ++ent->_depth;
@@ -499,10 +504,11 @@ int btree_entry_next(const btree *m, btree_entry *ent)
     occupied.  The argument `ent` must point to an occupied entry, or the
     behavior is undefined. */
 static inline
-int btree_entry_prev(const btree *m, btree_entry *ent)
+int btree_entry_prev(btree_entry *ent)
 {
+    btree *m = ent->_tree;
     HeightType height = m->_height;
-    assert(btree_entry_occupied(m, ent));
+    assert(btree_entry_occupied(ent));
     if (ent->_depth < height - 1) {
         ++ent->_depth;
         move_to_extremum(
@@ -698,11 +704,11 @@ int insert_node_here(int is_branch,
     @note The `key` must match the original key used to obtain the vacant
     entry, or the behavior is undefined. */
 static inline
-int btree_entry_insert(btree *m,
-                       btree_entry *entry,
+int btree_entry_insert(btree_entry *entry,
                        const KeyType *key,
                        const ValueType *value)
 {
+    btree *m = entry->_tree;
     char newkey[sizeof(KeyType)];
     cal_cond(HasValue)(char newvalue[sizeof(ValueType)], CAL_NOARG);
     leaf_node *newchild;
@@ -774,12 +780,11 @@ int btree_entry_insert(btree *m,
 
 /** Similar to `#btree_entry_insert` but aborts on error. */
 static inline
-void btree_entry_xinsert(btree *m,
-                         btree_entry *entry,
+void btree_entry_xinsert(btree_entry *entry,
                          const KeyType *key,
                          const ValueType *value)
 {
-    if (btree_entry_insert(m, entry, key, value)) {
+    if (btree_entry_insert(entry, key, value)) {
         fprintf(stderr, "%s:%lu:btree_entry_xinsert: Out of memory\n",
                 __FILE__, (unsigned long)__LINE__);
         fflush(stderr);
@@ -819,7 +824,7 @@ int btree_insert(btree *m,
     (void)value;
     (void)value_out;
     btree_find(m, key, &ent);
-    if (btree_entry_occupied(m, &ent)) {
+    if (btree_entry_occupied(&ent)) {
         cal_cond(HasValue)(
             char oldvalue[sizeof(ValueType)];
             ValueType *poldvalue = btree_entry_get(&ent);
@@ -831,7 +836,7 @@ int btree_insert(btree *m,
         , CAL_NOARG)
         return 1;
     }
-    return -btree_entry_insert(m, &ent, key, value);
+    return -btree_entry_insert(&ent, key, value);
 }
 
 /** Similar to `#btree_insert` but aborts if an error occurs. */
@@ -1084,8 +1089,9 @@ int merge_right(int is_branch,
 /** Removes the element at an occupied entry.  The entry is invalidated
     afterwards.  If the entry is not occupied, the behavior is undefined. */
 static inline
-void btree_entry_remove(btree *m, btree_entry *ent)
+void btree_entry_remove(btree_entry *ent)
 {
+    btree *m = ent->_tree;
     ChildIndexType i;
     leaf_node *node;
     HeightType depth = ent->_depth;
@@ -1096,7 +1102,7 @@ void btree_entry_remove(btree *m, btree_entry *ent)
 
     /* iterator must point to an exact match (as opposite to an "in-between"
        match, which is useful only for inserting elements) */
-    assert(btree_entry_occupied(m, ent));
+    assert(btree_entry_occupied(ent));
 
     --m->_len;
 
@@ -1209,7 +1215,7 @@ int btree_remove(btree *m,
     btree_entry ent;
     (void)value_out;
     btree_find(m, key, &ent);
-    if (!btree_entry_occupied(m, &ent)) {
+    if (!btree_entry_occupied(&ent)) {
         return 0;
     }
     if (key_out) {
@@ -1220,6 +1226,6 @@ int btree_remove(btree *m,
             memmove(value_out, btree_entry_get(&ent), sizeof(ValueType));
         }
     , CAL_NOARG)
-    btree_entry_remove(m, &ent);
+    btree_entry_remove(&ent);
     return 1;
 }

@@ -84,11 +84,8 @@ public:
     ~btree() {
         _btree_entry entry;
         for (_btree_find_first(&_m.value, &entry);
-             _btree_entry_occupied(&_m.value, &entry);
-             _btree_entry_next(&_m.value, &entry)) {
-printf("%i\n", (int)entry._istack[entry._depth]);
-printf("%i\n", (int)*priv_btree_leaf_len(entry._nodestack[entry._depth]));
-
+             _btree_entry_occupied(&entry);
+             _btree_entry_next(&entry)) {
             _btree_entry_key(&entry)->~Key();
             _btree_entry_get(&entry)->~T();
         }

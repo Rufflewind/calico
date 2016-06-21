@@ -132,8 +132,8 @@ void test_random(zd_btree *t,
     keys = malloc(l * sizeof(*keys));
     prev_key = -1;
     for (zd_btree_find_first(t, &entry);
-         zd_btree_entry_occupied(t, &entry);
-         zd_btree_entry_next(t, &entry)) {
+         zd_btree_entry_occupied(&entry);
+         zd_btree_entry_next(&entry)) {
         key_type key = *zd_btree_entry_key(&entry);
         value_type value = *zd_btree_entry_get(&entry);
         assert(prev_key < (long)key);
@@ -144,8 +144,8 @@ void test_random(zd_btree *t,
     }
     assert(l == 0);
     for (zd_btree_find_last(t, &entry);
-         zd_btree_entry_occupied(t, &entry);
-         zd_btree_entry_prev(t, &entry)) {
+         zd_btree_entry_occupied(&entry);
+         zd_btree_entry_prev(&entry)) {
         key_type key = *zd_btree_entry_key(&entry);
         value_type value = *zd_btree_entry_get(&entry);
         assert(keys[l] == key);
@@ -164,9 +164,9 @@ void test_random(zd_btree *t,
 
     /* regression test for a bug that occurs when the root node is empty */
     zd_btree_find_first(t, &entry);
-    assert(!zd_btree_entry_occupied(t, &entry));
+    assert(!zd_btree_entry_occupied(&entry));
     zd_btree_find_last(t, &entry);
-    assert(!zd_btree_entry_occupied(t, &entry));
+    assert(!zd_btree_entry_occupied(&entry));
 }
 
 #else /* benchmarking code below */
@@ -209,8 +209,8 @@ void bench_random(zd_btree *t,
     zd_btree_entry entry;
     TIME(name, zd_btree_len(t)) {
         for (zd_btree_find_first(t, &entry);
-             zd_btree_entry_occupied(t, &entry);
-             zd_btree_entry_next(t, &entry)) {
+             zd_btree_entry_occupied(&entry);
+             zd_btree_entry_next(&entry)) {
             black_box_u((unsigned)*zd_btree_entry_key(&entry) +
                         (unsigned)*zd_btree_entry_get(&entry));
         }
@@ -366,8 +366,8 @@ void bench_iteration(size_t count)
     TIME(name, n) {
         for (i = 0; i < n; ++i) {
             for (zz_btree_find_first(t, &entry);
-                 zz_btree_entry_occupied(t, &entry);
-                 zz_btree_entry_next(t, &entry)) {
+                 zz_btree_entry_occupied(&entry);
+                 zz_btree_entry_next(&entry)) {
                 j += *zz_btree_entry_get(&entry);
             }
         }
