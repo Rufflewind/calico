@@ -1,17 +1,7 @@
-#include "compat/inline_begin.h"
-#include "compat/static_assert_begin.h"
-#ifndef HasValue
-#ifdef ValueType
-#define HasValue 1
-#else
-#define HasValue 0
-#endif
-#endif
-/*@#public:btree_impl.h*/
-/*@depends(["btree_impl.h"])*/
-/*@
-make_template(
-    "btree_impl.h",
+import utils
+
+m = utils.TemplateMaker(
+    impl_filename="btree_impl.h",
     public_pattern=r"btree(_.*)?",
     exclude_pattern=r"cal_.*|static_assert",
     private_subprefix="priv_btree",
@@ -25,7 +15,5 @@ make_template(
         "HeightType=unsigned char",
     ],
 )
-*/
-#undef HasValue
-#include "compat/inline_end.h"
-#include "compat/static_assert_end.h"
+__deps__ = m.deps
+main = m.main

@@ -1,0 +1,38 @@
+#!/usr/bin/env python
+#
+# Uses Clang to parse the global identifiers in a file.  Arguments to this
+# script are passed to Clang.  Note that Clang can generate an AST even if it
+# errors.
+#
+import os, re, subprocess, sys
+
+with open(os.devnull, "w+b") as fdevnull:
+    p = subprocess.Popen(
+        ["clang", "-cc1", "-ast-dump"] + sys.argv[1:],
+        stdin=fdevnull,
+        stdout=subprocess.PIPE)
+
+out, _ = p.communicate()
+
+identifiers = set()
+for line in out.decode("utf-8").split("\n"):
+    if re.match(r".-\w*Decl|\| .-EnumConstantDecl", line):
+        m = re.match(r".*?\w+ \S+ <.*?> (?:<.*?>|\S+) ([^']*)", line)
+        if not m:
+            continue
+        x = m.group(1).split()
+        if x[0] == "implicit":
+            continue
+        if x[0] in ["used", "referenced"]:
+            x = x[1:]
+        if x[0] in ["invalid"]:
+            x = x[1:]
+        if x[0] in ["struct"]:
+            x = x[1:-1] # strip off "definition" too
+        if not x:
+            continue
+        identifier, = x
+        identifiers.add(identifier)
+
+for identifier in sorted(identifiers):
+    sys.stdout.write("{0}\n".format(identifier))

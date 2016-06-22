@@ -1,4 +1,4 @@
-/*@#public*/
+/*@self.public()*/
 /** @file
 
 Associative arrays implemented using B-trees.

@@ -12,9 +12,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-/*@#public*/
-/*@depends(["arithmetic_gen.py"])*/
-/*@exec(open("arithmetic_gen.py").read(), globals(), globals())*/
+/*@self.public()*/
+#include "arithmetic_impl_g.h"
 /** @file
     Checked arithmetic functions.  All functions return zero on success, and
     nonzero on failure. */

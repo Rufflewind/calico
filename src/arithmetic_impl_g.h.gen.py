@@ -1,5 +1,6 @@
-#!/usr/bin/env python
 import sys
+
+__deps__ = []
 
 qualifiers = "static inline"
 
@@ -325,76 +326,80 @@ def construct_name(operation, type):
 def construct_conv_name(srctype, dsttype):
     return suffix[srctype] + "_to_" + suffix[dsttype]
 
-write = sys.stdout.write
+def main():
+    write = sys.stdout.write
 
-for srctype, dsttype in convtypes:
-    cur_guard = guard(srctype) + guard(dsttype)
-    name = construct_conv_name(srctype, dsttype)
-    if cur_guard:
-        write("#ifdef {0}\n".format(" && ".join(cur_guard)))
-    write(convdoc.format(**locals()))
-    if qualifiers:
-        write(qualifiers)
-        write("\n")
-    write("int {name}({dsttype} *z, {srctype} x)"
-          .format(name=name, srctype=srctype, dsttype=dsttype))
-    write("\n{\n")
-    write("""
-    if (x < {const}_MIN || x > {const}_MAX) {{
-        return 1;
-    }}
-    *z = ({dsttype})x;
-    return 0;
-"""[1:].format(dsttype=dsttype, const=const_prefix(dsttype)))
-    write("}\n")
-    if cur_guard:
-        write("#endif\n")
-    write("\n")
+    write("/*@self.public()*/\n")
 
-for operation in all_operations:
-    for type in all_types:
-        name = construct_name(operation, type)
-        body = operation_body(operation, type)
-        if not body:
-            continue
-        builtin = builtin_template[type].format(operation)
-        impl_name = name + "_"
-        cur_aliases = aliases(type)
-        cur_guard = guard(type)
-        wrap = operation in wrap_operations
-        doc = docs(operation, type)
-
+    for srctype, dsttype in convtypes:
+        cur_guard = guard(srctype) + guard(dsttype)
+        name = construct_conv_name(srctype, dsttype)
         if cur_guard:
             write("#ifdef {0}\n".format(" && ".join(cur_guard)))
-
-        if wrap and cur_aliases is not None:
-            if qualifiers:
-                write(qualifiers)
-                write("\n")
-            write(prototype(operation, type, impl_name))
-            write("\n{\n")
-            write(body)
-            write("}\n\n")
-
-        if doc:
-            write(doc)
+        write(convdoc.format(**locals()))
         if qualifiers:
             write(qualifiers)
             write("\n")
-        write(prototype(operation, type, name))
+        write("int {name}({dsttype} *z, {srctype} x)"
+              .format(name=name, srctype=srctype, dsttype=dsttype))
         write("\n{\n")
-        if not wrap:
-            write(body)
-        elif cur_aliases is None:
-            write(binop_wrapper_simple(body, builtin))
-        else:
-            entries = "".join(binop_guard_typedef_entry(operation, alias_type)
-                              for alias_type in cur_aliases)
-            write(binop_wrapper_typedef(body, builtin, type,
-                                        impl_name, entries))
+        write("""
+        if (x < {const}_MIN || x > {const}_MAX) {{
+            return 1;
+        }}
+        *z = ({dsttype})x;
+        return 0;
+    """[1:].format(dsttype=dsttype, const=const_prefix(dsttype)))
         write("}\n")
-
         if cur_guard:
             write("#endif\n")
-
         write("\n")
+
+    for operation in all_operations:
+        for type in all_types:
+            name = construct_name(operation, type)
+            body = operation_body(operation, type)
+            if not body:
+                continue
+            builtin = builtin_template[type].format(operation)
+            impl_name = name + "_"
+            cur_aliases = aliases(type)
+            cur_guard = guard(type)
+            wrap = operation in wrap_operations
+            doc = docs(operation, type)
+
+            if cur_guard:
+                write("#ifdef {0}\n".format(" && ".join(cur_guard)))
+
+            if wrap and cur_aliases is not None:
+                if qualifiers:
+                    write(qualifiers)
+                    write("\n")
+                write(prototype(operation, type, impl_name))
+                write("\n{\n")
+                write(body)
+                write("}\n\n")
+
+            if doc:
+                write(doc)
+            if qualifiers:
+                write(qualifiers)
+                write("\n")
+            write(prototype(operation, type, name))
+            write("\n{\n")
+            if not wrap:
+                write(body)
+            elif cur_aliases is None:
+                write(binop_wrapper_simple(body, builtin))
+            else:
+                entries = "".join(
+                    binop_guard_typedef_entry(operation, alias_type)
+                    for alias_type in cur_aliases)
+                write(binop_wrapper_typedef(body, builtin, type,
+                                            impl_name, entries))
+            write("}\n")
+
+            if cur_guard:
+                write("#endif\n")
+
+            write("\n")

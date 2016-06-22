@@ -1,4 +1,4 @@
-/*@#public*/
+/*@self.public()*/
 /** @file
     Compatibility header for `static_assert`. */
 #if !defined CAL_STATIC_ASSERT_DEFINED

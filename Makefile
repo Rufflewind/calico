@@ -5,19 +5,23 @@ TESTCXXFLAGS=-std=c++11
 
 all: build build-bench
 
-build: include/arithmetic.h include/binary_search.h include/btree_head.h include/btree_impl.h include/btree_template.h include/compat/alignas_begin.h include/compat/alignas_end.h include/compat/alloca.h include/compat/inline_begin.h include/compat/inline_end.h include/compat/noreturn_begin.h include/compat/noreturn_end.h include/compat/restrict_begin.h include/compat/restrict_end.h include/compat/static_assert_begin.h include/compat/static_assert_end.h include/linear_ordered_search.h include/macros.h include/shuffle.h include/wclock.h
+build: include/calico/src/arithmetic.h include/calico/src/arithmetic_impl_g.h include/calico/src/binary_search.h include/calico/src/btree.hpp include/calico/src/btree_head.h include/calico/src/btree_impl.h include/calico/src/btree_template.h include/calico/src/compat/alignas_begin.h include/calico/src/compat/alignas_end.h include/calico/src/compat/alloca.h include/calico/src/compat/inline_begin.h include/calico/src/compat/inline_end.h include/calico/src/compat/noreturn_begin.h include/calico/src/compat/noreturn_end.h include/calico/src/compat/restrict_begin.h include/calico/src/compat/restrict_end.h include/calico/src/compat/static_assert_begin.h include/calico/src/compat/static_assert_end.h include/calico/src/linear_ordered_search.h include/calico/src/macros.h include/calico/src/shuffle.h include/calico/src/wclock.h src/arithmetic.h src/binary_search.h src/btree.hpp src/btree_head.h src/btree_impl.h src/btree_template.h src/compat/alignas_begin.h src/compat/alignas_end.h src/compat/alloca.h src/compat/inline_begin.h src/compat/inline_end.h src/compat/noreturn_begin.h src/compat/noreturn_end.h src/compat/restrict_begin.h src/compat/restrict_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/wclock.h
 
 build-bench: tmp/bench-btree tmp/bench-stdmap++
 
 check: run-test-binary_search run-test-btree run-test-btree++ run-test-shuffle run-test-stdmap++ run-test-wclock
 
 clean:
-	rm -fr -- include/arithmetic.h include/binary_search.h include/btree_head.h include/btree_impl.h include/btree_template.h include/compat/alignas_begin.h include/compat/alignas_end.h include/compat/alloca.h include/compat/inline_begin.h include/compat/inline_end.h include/compat/noreturn_begin.h include/compat/noreturn_end.h include/compat/restrict_begin.h include/compat/restrict_end.h include/compat/static_assert_begin.h include/compat/static_assert_end.h include/linear_ordered_search.h include/macros.h include/shuffle.h include/wclock.h src/arithmetic.h src/binary_search_test.c.o src/black_box.c.o src/black_box_bench.c.o src/btree_template.h src/btree_test.c.o src/btree_test.cpp.o src/btree_test_bench.c.o src/shuffle_test.c.o src/stdmap_test.cpp.o src/stdmap_test_bench.cpp.o src/wclock_test.c.o tmp/bench-btree tmp/bench-stdmap++ tmp/doc-src/calico/arithmetic.h tmp/doc-src/calico/binary_search.h tmp/doc-src/calico/btree_head.h tmp/doc-src/calico/btree_impl.h tmp/doc-src/calico/btree_template.h tmp/doc-src/calico/compat/alignas_begin.h tmp/doc-src/calico/compat/alignas_end.h tmp/doc-src/calico/compat/alloca.h tmp/doc-src/calico/compat/inline_begin.h tmp/doc-src/calico/compat/inline_end.h tmp/doc-src/calico/compat/noreturn_begin.h tmp/doc-src/calico/compat/noreturn_end.h tmp/doc-src/calico/compat/restrict_begin.h tmp/doc-src/calico/compat/restrict_end.h tmp/doc-src/calico/compat/static_assert_begin.h tmp/doc-src/calico/compat/static_assert_end.h tmp/doc-src/calico/linear_ordered_search.h tmp/doc-src/calico/macros.h tmp/doc-src/calico/shuffle.h tmp/doc-src/calico/wclock.h tmp/test-binary_search tmp/test-btree tmp/test-btree++ tmp/test-shuffle tmp/test-stdmap++ tmp/test-wclock
+	rm -fr -- include/calico/src/arithmetic.h include/calico/src/arithmetic_impl_g.h include/calico/src/binary_search.h include/calico/src/btree.hpp include/calico/src/btree_head.h include/calico/src/btree_impl.h include/calico/src/btree_template.h include/calico/src/compat/alignas_begin.h include/calico/src/compat/alignas_end.h include/calico/src/compat/alloca.h include/calico/src/compat/inline_begin.h include/calico/src/compat/inline_end.h include/calico/src/compat/noreturn_begin.h include/calico/src/compat/noreturn_end.h include/calico/src/compat/restrict_begin.h include/calico/src/compat/restrict_end.h include/calico/src/compat/static_assert_begin.h include/calico/src/compat/static_assert_end.h include/calico/src/linear_ordered_search.h include/calico/src/macros.h include/calico/src/shuffle.h include/calico/src/wclock.h src/arithmetic.h src/arithmetic_impl_g.h src/binary_search.h src/binary_search_test.c.o src/black_box.c.o src/black_box_bench.c.o src/btree.hpp src/btree_head.h src/btree_impl.h src/btree_impl_ids.txt src/btree_template.h src/btree_template_impl_g.h src/btree_test.c.o src/btree_test.cpp.o src/btree_test_bench.c.o src/compat/alignas_begin.h src/compat/alignas_end.h src/compat/alloca.h src/compat/inline_begin.h src/compat/inline_end.h src/compat/noreturn_begin.h src/compat/noreturn_end.h src/compat/restrict_begin.h src/compat/restrict_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/shuffle_test.c.o src/stdmap_test.cpp.o src/stdmap_test_bench.cpp.o src/wclock.h src/wclock_test.c.o tmp/bench-btree tmp/bench-stdmap++ tmp/test-binary_search tmp/test-btree tmp/test-btree++ tmp/test-shuffle tmp/test-stdmap++ tmp/test-wclock
 
 deploy-doc: doc
 	[ -d doc/html/.git ] || ( url=`git remote -v | grep origin | awk '{ printf "%s", $$2; exit }'` &&mkdir -p doc/html && cd doc/html && git init && git config user.name Bot && git config user.email '<>' && git commit -m _ --allow-empty && git remote add origin "$$url" ) && cd doc/html && git add -A && git commit --amend -q -m Autogenerated && git push -f origin master:gh-pages
 
-doc: tmp/doc-src/calico/arithmetic.h tmp/doc-src/calico/binary_search.h tmp/doc-src/calico/btree_head.h tmp/doc-src/calico/btree_impl.h tmp/doc-src/calico/btree_template.h tmp/doc-src/calico/compat/alignas_begin.h tmp/doc-src/calico/compat/alignas_end.h tmp/doc-src/calico/compat/alloca.h tmp/doc-src/calico/compat/inline_begin.h tmp/doc-src/calico/compat/inline_end.h tmp/doc-src/calico/compat/noreturn_begin.h tmp/doc-src/calico/compat/noreturn_end.h tmp/doc-src/calico/compat/restrict_begin.h tmp/doc-src/calico/compat/restrict_end.h tmp/doc-src/calico/compat/static_assert_begin.h tmp/doc-src/calico/compat/static_assert_end.h tmp/doc-src/calico/linear_ordered_search.h tmp/doc-src/calico/macros.h tmp/doc-src/calico/shuffle.h tmp/doc-src/calico/wclock.h
+doc: build
+	rm -fr tmp/doc-src
+	mkdir -p tmp
+	cp -r include tmp/doc-src/
+	mv tmp/doc-src/btree_impl.h tmp/doc-src/btree_template.h
 	tools/generate-doxygen-mainpage <README.md >tmp/doc-src/README.md
 	doxygen
 
@@ -39,88 +43,101 @@ run-test-stdmap++: tmp/test-stdmap++
 run-test-wclock: tmp/test-wclock
 	valgrind $(VALGRINDFLAGS) tmp/test-wclock
 
-include/arithmetic.h: src/arithmetic.h
-	@mkdir -p include
-	cp src/arithmetic.h include/arithmetic.h
+include/calico/src/arithmetic.h: src/arithmetic.h
+	@mkdir -p include/calico/src
+	cp src/arithmetic.h $@
 
-include/binary_search.h: src/binary_search.h
-	@mkdir -p include
-	cp src/binary_search.h include/binary_search.h
+include/calico/src/arithmetic_impl_g.h: src/arithmetic_impl_g.h
+	@mkdir -p include/calico/src
+	cp src/arithmetic_impl_g.h $@
 
-include/btree_head.h: src/btree_head.h
-	@mkdir -p include
-	cp src/btree_head.h include/btree_head.h
+include/calico/src/binary_search.h: src/binary_search.h
+	@mkdir -p include/calico/src
+	cp src/binary_search.h $@
 
-include/btree_impl.h: src/btree_impl.h
-	@mkdir -p include
-	cp src/btree_impl.h include/btree_impl.h
+include/calico/src/btree.hpp: src/btree.hpp
+	@mkdir -p include/calico/src
+	cp src/btree.hpp $@
 
-include/btree_template.h: src/btree_template.h
-	@mkdir -p include
-	cp src/btree_template.h include/btree_template.h
+include/calico/src/btree_head.h: src/btree_head.h
+	@mkdir -p include/calico/src
+	cp src/btree_head.h $@
 
-include/compat/alignas_begin.h: src/compat/alignas_begin.h
-	@mkdir -p include/compat
-	cp src/compat/alignas_begin.h include/compat/alignas_begin.h
+include/calico/src/btree_impl.h: src/btree_impl.h
+	@mkdir -p include/calico/src
+	cp src/btree_impl.h $@
 
-include/compat/alignas_end.h: src/compat/alignas_end.h
-	@mkdir -p include/compat
-	cp src/compat/alignas_end.h include/compat/alignas_end.h
+include/calico/src/btree_template.h: src/btree_template.h
+	@mkdir -p include/calico/src
+	cp src/btree_template.h $@
 
-include/compat/alloca.h: src/compat/alloca.h
-	@mkdir -p include/compat
-	cp src/compat/alloca.h include/compat/alloca.h
+include/calico/src/compat/alignas_begin.h: src/compat/alignas_begin.h
+	@mkdir -p include/calico/src/compat
+	cp src/compat/alignas_begin.h $@
 
-include/compat/inline_begin.h: src/compat/inline_begin.h
-	@mkdir -p include/compat
-	cp src/compat/inline_begin.h include/compat/inline_begin.h
+include/calico/src/compat/alignas_end.h: src/compat/alignas_end.h
+	@mkdir -p include/calico/src/compat
+	cp src/compat/alignas_end.h $@
 
-include/compat/inline_end.h: src/compat/inline_end.h
-	@mkdir -p include/compat
-	cp src/compat/inline_end.h include/compat/inline_end.h
+include/calico/src/compat/alloca.h: src/compat/alloca.h
+	@mkdir -p include/calico/src/compat
+	cp src/compat/alloca.h $@
 
-include/compat/noreturn_begin.h: src/compat/noreturn_begin.h
-	@mkdir -p include/compat
-	cp src/compat/noreturn_begin.h include/compat/noreturn_begin.h
+include/calico/src/compat/inline_begin.h: src/compat/inline_begin.h
+	@mkdir -p include/calico/src/compat
+	cp src/compat/inline_begin.h $@
 
-include/compat/noreturn_end.h: src/compat/noreturn_end.h
-	@mkdir -p include/compat
-	cp src/compat/noreturn_end.h include/compat/noreturn_end.h
+include/calico/src/compat/inline_end.h: src/compat/inline_end.h
+	@mkdir -p include/calico/src/compat
+	cp src/compat/inline_end.h $@
 
-include/compat/restrict_begin.h: src/compat/restrict_begin.h
-	@mkdir -p include/compat
-	cp src/compat/restrict_begin.h include/compat/restrict_begin.h
+include/calico/src/compat/noreturn_begin.h: src/compat/noreturn_begin.h
+	@mkdir -p include/calico/src/compat
+	cp src/compat/noreturn_begin.h $@
 
-include/compat/restrict_end.h: src/compat/restrict_end.h
-	@mkdir -p include/compat
-	cp src/compat/restrict_end.h include/compat/restrict_end.h
+include/calico/src/compat/noreturn_end.h: src/compat/noreturn_end.h
+	@mkdir -p include/calico/src/compat
+	cp src/compat/noreturn_end.h $@
 
-include/compat/static_assert_begin.h: src/compat/static_assert_begin.h
-	@mkdir -p include/compat
-	cp src/compat/static_assert_begin.h include/compat/static_assert_begin.h
+include/calico/src/compat/restrict_begin.h: src/compat/restrict_begin.h
+	@mkdir -p include/calico/src/compat
+	cp src/compat/restrict_begin.h $@
 
-include/compat/static_assert_end.h: src/compat/static_assert_end.h
-	@mkdir -p include/compat
-	cp src/compat/static_assert_end.h include/compat/static_assert_end.h
+include/calico/src/compat/restrict_end.h: src/compat/restrict_end.h
+	@mkdir -p include/calico/src/compat
+	cp src/compat/restrict_end.h $@
 
-include/linear_ordered_search.h: src/linear_ordered_search.h
-	@mkdir -p include
-	cp src/linear_ordered_search.h include/linear_ordered_search.h
+include/calico/src/compat/static_assert_begin.h: src/compat/static_assert_begin.h
+	@mkdir -p include/calico/src/compat
+	cp src/compat/static_assert_begin.h $@
 
-include/macros.h: src/macros.h
-	@mkdir -p include
-	cp src/macros.h include/macros.h
+include/calico/src/compat/static_assert_end.h: src/compat/static_assert_end.h
+	@mkdir -p include/calico/src/compat
+	cp src/compat/static_assert_end.h $@
 
-include/shuffle.h: src/shuffle.h
-	@mkdir -p include
-	cp src/shuffle.h include/shuffle.h
+include/calico/src/linear_ordered_search.h: src/linear_ordered_search.h
+	@mkdir -p include/calico/src
+	cp src/linear_ordered_search.h $@
 
-include/wclock.h: src/wclock.h
-	@mkdir -p include
-	cp src/wclock.h include/wclock.h
+include/calico/src/macros.h: src/macros.h
+	@mkdir -p include/calico/src
+	cp src/macros.h $@
 
-src/arithmetic.h: src/arithmetic_gen.py src/arithmetic_in.h
-	tools/preprocess preproc >$@ src/arithmetic_in.h
+include/calico/src/shuffle.h: src/shuffle.h
+	@mkdir -p include/calico/src
+	cp src/shuffle.h $@
+
+include/calico/src/wclock.h: src/wclock.h
+	@mkdir -p include/calico/src
+	cp src/wclock.h $@
+
+src/arithmetic.h: src/arithmetic_impl_g.h
+
+src/arithmetic_impl_g.h: src/arithmetic_impl_g.h.gen.py
+	tools/run-generator >$@.tmp src/arithmetic_impl_g.h.gen.py
+	mv $@.tmp $@
+
+src/binary_search.h src/linear_ordered_search.h src/wclock.h: src/compat/inline_begin.h src/compat/inline_end.h
 
 src/binary_search_test.c.o: src/binary_search.h src/binary_search_test.c src/compat/inline_begin.h src/compat/inline_end.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/binary_search_test.c
@@ -131,16 +148,29 @@ src/black_box.c.o: src/black_box.c src/compat/inline_begin.h src/compat/inline_e
 src/black_box_bench.c.o: src/black_box.c src/compat/inline_begin.h src/compat/inline_end.h src/utils.h src/wclock.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(BENCHCPPFLAGS) $(BENCHCFLAGS) -c -o $@ src/black_box.c
 
-src/btree_template.h: src/btree_impl.h src/btree_template_in.h
-	tools/preprocess preproc >$@ src/btree_template_in.h
+src/btree.hpp: src/btree_head.h src/btree_template.h
 
-src/btree_test.c.o: src/binary_search.h src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_test.c src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/utils.h src/wclock.h
+src/btree_head.h: src/linear_ordered_search.h src/macros.h
+
+src/btree_impl.h src/compat/alignas_begin.h src/compat/alignas_end.h src/compat/alloca.h src/compat/inline_begin.h src/compat/inline_end.h src/compat/noreturn_begin.h src/compat/noreturn_end.h src/compat/restrict_begin.h src/compat/restrict_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/macros.h src/shuffle.h:
+
+src/btree_impl_ids.txt: src/btree_impl.h src/btree_impl_ids.txt.gen.py
+	tools/run-generator >$@.tmp src/btree_impl_ids.txt.gen.py
+	mv $@.tmp $@
+
+src/btree_template.h: src/btree_template_impl_g.h src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h
+
+src/btree_template_impl_g.h: src/btree_impl_ids.txt src/btree_template_impl_g.h.gen.py
+	tools/run-generator >$@.tmp src/btree_template_impl_g.h.gen.py
+	mv $@.tmp $@
+
+src/btree_test.c.o: src/binary_search.h src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_template_impl_g.h src/btree_test.c src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/utils.h src/wclock.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/btree_test.c
 
-src/btree_test.cpp.o: src/btree.hpp src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_test.cpp src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h
+src/btree_test.cpp.o: src/btree.hpp src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_template_impl_g.h src/btree_test.cpp src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(TESTCPPFLAGS) $(TESTCXXFLAGS) -c -o $@ src/btree_test.cpp
 
-src/btree_test_bench.c.o: src/binary_search.h src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_test.c src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/utils.h src/wclock.h
+src/btree_test_bench.c.o: src/binary_search.h src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_template_impl_g.h src/btree_test.c src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/utils.h src/wclock.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(BENCHCPPFLAGS) $(BENCHCFLAGS) -c -o $@ src/btree_test.c
 
 src/shuffle_test.c.o: src/shuffle.h src/shuffle_test.c
@@ -162,86 +192,6 @@ tmp/bench-btree: src/black_box_bench.c.o src/btree_test_bench.c.o
 tmp/bench-stdmap++: src/black_box_bench.c.o src/stdmap_test_bench.cpp.o
 	@mkdir -p tmp
 	$(CXX) $(CXXFLAGS) -o $@ src/stdmap_test_bench.cpp.o src/black_box_bench.c.o
-
-tmp/doc-src/calico/arithmetic.h: src/arithmetic.h
-	@mkdir -p tmp/doc-src/calico
-	cp src/arithmetic.h tmp/doc-src/calico/arithmetic.h
-
-tmp/doc-src/calico/binary_search.h: src/binary_search.h
-	@mkdir -p tmp/doc-src/calico
-	cp src/binary_search.h tmp/doc-src/calico/binary_search.h
-
-tmp/doc-src/calico/btree_head.h: src/btree_head.h
-	@mkdir -p tmp/doc-src/calico
-	cp src/btree_head.h tmp/doc-src/calico/btree_head.h
-
-tmp/doc-src/calico/btree_impl.h: src/btree_impl.h
-	@mkdir -p tmp/doc-src/calico
-	cp src/btree_impl.h tmp/doc-src/calico/btree_impl.h
-
-tmp/doc-src/calico/btree_template.h: src/btree_impl.h
-	@mkdir -p tmp/doc-src/calico
-	cp src/btree_impl.h tmp/doc-src/calico/btree_template.h
-
-tmp/doc-src/calico/compat/alignas_begin.h: src/compat/alignas_begin.h
-	@mkdir -p tmp/doc-src/calico/compat
-	cp src/compat/alignas_begin.h tmp/doc-src/calico/compat/alignas_begin.h
-
-tmp/doc-src/calico/compat/alignas_end.h: src/compat/alignas_end.h
-	@mkdir -p tmp/doc-src/calico/compat
-	cp src/compat/alignas_end.h tmp/doc-src/calico/compat/alignas_end.h
-
-tmp/doc-src/calico/compat/alloca.h: src/compat/alloca.h
-	@mkdir -p tmp/doc-src/calico/compat
-	cp src/compat/alloca.h tmp/doc-src/calico/compat/alloca.h
-
-tmp/doc-src/calico/compat/inline_begin.h: src/compat/inline_begin.h
-	@mkdir -p tmp/doc-src/calico/compat
-	cp src/compat/inline_begin.h tmp/doc-src/calico/compat/inline_begin.h
-
-tmp/doc-src/calico/compat/inline_end.h: src/compat/inline_end.h
-	@mkdir -p tmp/doc-src/calico/compat
-	cp src/compat/inline_end.h tmp/doc-src/calico/compat/inline_end.h
-
-tmp/doc-src/calico/compat/noreturn_begin.h: src/compat/noreturn_begin.h
-	@mkdir -p tmp/doc-src/calico/compat
-	cp src/compat/noreturn_begin.h tmp/doc-src/calico/compat/noreturn_begin.h
-
-tmp/doc-src/calico/compat/noreturn_end.h: src/compat/noreturn_end.h
-	@mkdir -p tmp/doc-src/calico/compat
-	cp src/compat/noreturn_end.h tmp/doc-src/calico/compat/noreturn_end.h
-
-tmp/doc-src/calico/compat/restrict_begin.h: src/compat/restrict_begin.h
-	@mkdir -p tmp/doc-src/calico/compat
-	cp src/compat/restrict_begin.h tmp/doc-src/calico/compat/restrict_begin.h
-
-tmp/doc-src/calico/compat/restrict_end.h: src/compat/restrict_end.h
-	@mkdir -p tmp/doc-src/calico/compat
-	cp src/compat/restrict_end.h tmp/doc-src/calico/compat/restrict_end.h
-
-tmp/doc-src/calico/compat/static_assert_begin.h: src/compat/static_assert_begin.h
-	@mkdir -p tmp/doc-src/calico/compat
-	cp src/compat/static_assert_begin.h tmp/doc-src/calico/compat/static_assert_begin.h
-
-tmp/doc-src/calico/compat/static_assert_end.h: src/compat/static_assert_end.h
-	@mkdir -p tmp/doc-src/calico/compat
-	cp src/compat/static_assert_end.h tmp/doc-src/calico/compat/static_assert_end.h
-
-tmp/doc-src/calico/linear_ordered_search.h: src/linear_ordered_search.h
-	@mkdir -p tmp/doc-src/calico
-	cp src/linear_ordered_search.h tmp/doc-src/calico/linear_ordered_search.h
-
-tmp/doc-src/calico/macros.h: src/macros.h
-	@mkdir -p tmp/doc-src/calico
-	cp src/macros.h tmp/doc-src/calico/macros.h
-
-tmp/doc-src/calico/shuffle.h: src/shuffle.h
-	@mkdir -p tmp/doc-src/calico
-	cp src/shuffle.h tmp/doc-src/calico/shuffle.h
-
-tmp/doc-src/calico/wclock.h: src/wclock.h
-	@mkdir -p tmp/doc-src/calico
-	cp src/wclock.h tmp/doc-src/calico/wclock.h
 
 tmp/test-binary_search: src/binary_search_test.c.o
 	@mkdir -p tmp

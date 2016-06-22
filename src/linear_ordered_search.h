@@ -1,6 +1,6 @@
 #ifndef G_IB1RSJRJ5ELTXW92F82R0LCRDDI15
 #define G_IB1RSJRJ5ELTXW92F82R0LCRDDI15
-/*@#public*/
+/*@self.public()*/
 /** @file
     Linear ordered search. */
 #include <stddef.h>

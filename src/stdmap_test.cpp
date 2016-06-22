@@ -1,5 +1,5 @@
-/*@#bench*/
-/*@#depends:black_box.c*/
+/*@self.bench()*/
+/*@self.depends(["black_box.c"])*/
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>

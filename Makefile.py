@@ -1,75 +1,78 @@
-import os, re, subprocess
+import os, re, runpy, subprocess, sys
 from makegen import *
+sys.path.insert(0, "tools")
+import utils
 
-def get_all_files(dir):
-    for dn, _, bns in os.walk(dir):
-        for bn in bns:
-            yield os.path.join(dn, bn)
+def make_preprocess_rules(fns):
+    for fn in fns:
+        m = re.match("(.*?)\.gen\.py$", fn)
+        if not m:
+            continue
+        out_fn, = m.groups()
+        deps = [snormpath(os.path.join(os.path.dirname(fn), x))
+                for x in runpy.run_path(fn)["__deps__"]]
+        deps.insert(0, fn)
+        yield simple_command(
+            [
+                "tools/run-generator >$@.tmp {fn}".format(**locals()),
+                "mv $@.tmp $@",
+            ],
+            out_fn,
+            deps,
+            no_format=True,
+        )
 
-def make_preprocess_rules(fns, extensions):
+def get_dependencies(fn):
+    with open(fn) as f:
+        for line in f:
+            m = re.match(r'\s*#\s*include\s*"([^"]*)"', line)
+            if not m:
+                continue
+            yield snormpath(os.path.join(os.path.dirname(fn),
+                                         m.group(1)))
+
+def make_copy_header_rules(fns, extensions, prefix=""):
     for fn in fns:
         name, ext = os.path.splitext(os.path.basename(fn))
         if ext not in extensions:
             continue
-        hint = {
-            "bench": False,
-            "deps": [],
-            "public": False,
-        }
-        ppdeps = []
-        with open(fn, "rt") as f:
-            s = f.read(4096)
-            if "/*@#bench*/" in s:
-                hint["bench"] = True
-            # these are object file dependencies (needed by linker)
-            m = re.search(r"/\*@#public([^*]*)\*/", s)
-            if m:
-                arg = m.group(1)
-                if arg.startswith(":"):
-                    hint["public"] = arg[1:]
-                else:
-                    hint["public"] = True
-            # these are object file dependencies (needed by linker)
-            m = re.search(r"/\*@#depends:([^*]*)\*/", s)
-            if m:
-                hint["deps"] = m.group(1).split()
-            # these are preprocessor dependencies
-            m = re.search(r"/\*@(depends\([^*]*)\*/", s)
-            if m:
-                depends = lambda x: x
-                ppdeps = [os.path.join(os.path.dirname(fn), x)
-                          for x in eval(m.group(1))]
-        m = re.match("(.*)_in$", name)
-        if m:
-            out_name, = m.groups()
-            out_fn = os.path.join(os.path.dirname(fn), out_name + ext)
-            yield simple_command(
-                ["tools/preprocess preproc >$@ " + fn],
-                out_fn,
-                [fn] + ppdeps,
-                hint=hint,
+        pp = utils.Preprocessor(fn)
+        pp.preprocess()
+        if not pp.attributes.get("public", False):
+            continue
+        relpath, = re.match("src/(.*)$", fn).groups()
+        out_fn = "include/" + prefix + fn
+        yield simple_command(
+            "cp {fn} $@".format(**locals()),
+            out_fn,
+            [fn],
+        )
+        if "_g." not in fn:
+            deps = tuple(get_dependencies(fn))
+            yield Ruleset(
+                default_target=fn,
+                rules={fn: (frozenset(deps), ())},
             )
-        else:
-            yield plain_file(fn, hint=hint)
 
 def make_run_test_rule(program_ruleset):
     return simple_command("valgrind $(VALGRINDFLAGS) {0}",
         "run-" + os.path.basename(program_ruleset.default_target),
         [program_ruleset], phony=True)
 
-def make_test_rules(src_rules, extensions, root):
-    for src_rule in src_rules:
-        fn = src_rule.default_target
+def make_test_rules(fns, extensions, root):
+    for fn in fns:
         name, ext = os.path.splitext(os.path.basename(fn))
         if ext not in extensions:
             continue
-        m = re.match("(.*)_test$", name)
+        m = re.match("(.*?)_test$", name)
         if not m:
             continue
         out_name, = m.groups()
         dn = os.path.dirname(fn)
+        pp = utils.Preprocessor(fn)
+        pp.preprocess()
         src_fns = [fn] + [snormpath(os.path.join(dn, bn))
-                          for bn in src_rule.hint["deps"]]
+                          for bn in pp.attributes["deps"]]
         test_name = snormpath(os.path.join(
             os.path.relpath(dn, root),
             out_name
@@ -86,9 +89,9 @@ def make_test_rules(src_rules, extensions, root):
                 suffix="",
                 extension_suffix=True,
             ) for src_fn in src_fns
-        ])).merge(src_rule, hint_merger=do_nothing)
+        ]))
         bench_rule = None
-        if src_rule.hint["bench"]:
+        if pp.attributes.get("bench", False):
             bench_rule = build_program("tmp/bench-" + test_name, [
                 compile_source(
                     src_fn,
@@ -99,31 +102,8 @@ def make_test_rules(src_rules, extensions, root):
                     suffix="_bench",
                     extension_suffix=True,
                 ) for src_fn in src_fns
-            ]).merge(src_rule, hint_merger=do_nothing)
+            ])
         yield check_rule, bench_rule
-
-def make_build_rules(src_rules, root, destdir, fakesrc=False):
-    for src_rule in src_rules:
-        if not src_rule.hint["public"]:
-            continue
-        if not fakesrc or src_rule.hint["public"] == True:
-            fn = src_rule.default_target
-        else:
-            # when fakesrc is True, we allow the source file name to be
-            # overridden by the argument of the "public" directive;
-            # we use this when generating documentation
-            fn = snormpath(os.path.join(
-                os.path.dirname(src_rule.default_target),
-                src_rule.hint["public"]))
-        out_fn = os.path.join(
-            destdir,
-            os.path.relpath(src_rule.default_target, root))
-        out_dir = os.path.dirname(out_fn)
-        yield simple_command(
-            "cp {fn} {out_fn}".format(**locals()),
-            out_fn,
-            [fn],
-        ).merge(src_rule, hint_merger=do_nothing)
 
 def make_deploy_doc_rule(doc_dir, doc_rule, branch="origin"):
     return simple_command(
@@ -150,17 +130,14 @@ def make_deploy_doc_rule(doc_dir, doc_rule, branch="origin"):
 
 root = "src"
 
-srcs = get_all_files(root)
+srcs = list(utils.get_all_files(root))
 
-ppedsrc_rules = list(make_preprocess_rules(srcs, [".c", ".cpp", ".h"]))
+pp_rules = list(make_preprocess_rules(srcs))
 
-test_rules = list(make_test_rules(ppedsrc_rules, [".c", ".cpp"], root))
+test_rules = list(make_test_rules(srcs, [".c", ".cpp"], root))
 
 build_rule = alias("build", list(
-    make_build_rules(ppedsrc_rules, root, "include")))
-
-build_docs_rule = list(
-    make_build_rules(ppedsrc_rules, root, "tmp/doc-src/calico", fakesrc=True))
+    make_copy_header_rules(srcs, [".h", ".hpp"], prefix="calico/")))
 
 build_bench_rule = alias("build-bench", [x[1] for x in test_rules
                                          if x[1] is not None])
@@ -168,9 +145,13 @@ build_bench_rule = alias("build-bench", [x[1] for x in test_rules
 check_rule = alias("check", [x[0] for x in test_rules])
 
 doc_rule = simple_command([
+    "rm -fr tmp/doc-src",
+    "mkdir -p tmp",
+    "cp -r include tmp/doc-src/",
+    "mv tmp/doc-src/btree_impl.h tmp/doc-src/btree_template.h",
     "tools/generate-doxygen-mainpage <README.md >tmp/doc-src/README.md",
     "doxygen",
-], "doc", build_docs_rule, phony=True)
+], "doc", [build_rule], phony=True)
 
 alias("all", [
     build_rule,
@@ -186,4 +167,5 @@ alias("all", [
         "TESTCFLAGS": "-std=c99",
         "TESTCXXFLAGS": "-std=c++11",
     }),
+    *pp_rules
 ).save()

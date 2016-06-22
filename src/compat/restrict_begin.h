@@ -1,4 +1,4 @@
-/*@#public*/
+/*@self.public()*/
 /** @file
     Compatibility header for `restrict`. */
 #ifdef CAL_RESTRICT_DEFINED

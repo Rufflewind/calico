@@ -1,4 +1,4 @@
-/*@#public*/
+/*@self.public()*/
 /** @file
     Compatibility header for `alignas`. */
 #ifdef CAL_ALIGNAS_DEFINED

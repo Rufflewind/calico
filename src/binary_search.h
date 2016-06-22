@@ -1,6 +1,6 @@
 #ifndef G_WZJZCCUAAKWCCDXAXI6O6GC574KDM
 #define G_WZJZCCUAAKWCCDXAXI6O6GC574KDM
-/*@#public*/
+/*@self.public()*/
 /** @file
     Binary search. */
 #include <stddef.h>

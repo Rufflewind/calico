@@ -1,2 +1,4 @@
 #!/bin/sh
-sed 's/\*\*Quick links\*\*:.*/A full list of the header files can be be found under [Files](files.html)./'
+sed 's/\*\*Quick links\*\*:.*/A full list of the header files can be be found under [Files](files.html)./' |
+sed 's/.*[aA]pp[vV]eyor.*//' |
+sed 's/.*[tT]ravis.*//'

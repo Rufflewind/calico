@@ -1,4 +1,4 @@
-/*@#public*/
+/*@self.public()*/
 /** @file
 
     Miscellaneous utility macros.

@@ -1,4 +1,4 @@
-/*@#public*/
+/*@self.public()*/
 /** @file
     Compatibility header for `noreturn`. */
 #ifdef CAL_NORETURN_DEFINED

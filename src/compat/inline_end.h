@@ -1,4 +1,4 @@
-/*@#public*/
+/*@self.public()*/
 /** @file
     Compatibility header for `inline`. */
 #if !defined CAL_INLINE_DEFINED

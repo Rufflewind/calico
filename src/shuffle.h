@@ -1,6 +1,6 @@
 #ifndef G_FU4GEW35ROFUW4GO3WDMZA7P80W0J
 #define G_FU4GEW35ROFUW4GO3WDMZA7P80W0J
-/*@#public*/
+/*@self.public()*/
 /** @file
     Shuffling algorithm. */
 #include <stddef.h>
