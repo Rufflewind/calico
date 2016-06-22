@@ -622,7 +622,7 @@ int insert_node_here(int is_branch,
 {
     struct elem_ref newelems;
     leaf_node *newnode;
-    size_t s;
+    size_t s, min_arity_z = (size_t)MinArity;
     ChildIndexType len = *leaf_len(node);
 
     /* case A: enough room to do a simple insert */
@@ -647,7 +647,7 @@ int insert_node_here(int is_branch,
         abort();
     }
     newelems = node_elems(is_branch, newnode);
-    s = i > MinArity ? i : MinArity;
+    s = i > min_arity_z ? i : min_arity_z;
     copy_elems(offset_elem(newelems, (ptrdiff_t)(s - MinArity)),
                offset_elem(elems, (ptrdiff_t)s),
                MinArity * 2 - 1 - s);

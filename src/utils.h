@@ -1,10 +1,11 @@
 #ifndef G_H5607C32N66ZQ6KQ8RIZKVWKQ1BB5
 #define G_H5607C32N66ZQ6KQ8RIZKVWKQ1BB5
+#include <stddef.h>
+#include "wclock.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include "wclock.h"
 static wclock clk;
 #ifdef BENCH
 static int timing_counter;

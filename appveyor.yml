@@ -4,4 +4,4 @@ build: false
 install:
 - set PATH=C:\msys64\usr\bin;%PATH%
 test_script:
-- sh -c "make -j$((`nproc` + 1)) check"
+- sh -c "make && make VALGRIND= check"

@@ -1,8 +1,18 @@
-language: c
+language: c++
 sudo: false
 matrix:
   include:
   - os: linux
+    env: HAVE_GCC5=1 LIBS=-lrt VALGRIND=valgrind
+    addons:
+      apt:
+        packages:
+        - g++-5
+        - valgrind
+        sources:
+        - ubuntu-toolchain-r-test
   - os: osx
+before_install:
+- if [ "${HAVE_GCC5-}" ]; then export CC=gcc-5 CXX=g++-5; fi
 script:
-- make -j$((`nproc` + 1)) check
+- make && make VALGRIND="${VALGRIND-}" check

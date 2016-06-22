@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 #
 # Uses Clang to parse the global identifiers in a file.  Arguments to this
-# script are passed to Clang.  Note that Clang can generate an AST even if it
-# errors.
+# script are passed to Clang.
 #
 import os, re, subprocess, sys
 
@@ -10,9 +9,17 @@ with open(os.devnull, "w+b") as fdevnull:
     p = subprocess.Popen(
         ["clang", "-cc1", "-ast-dump"] + sys.argv[1:],
         stdin=fdevnull,
-        stdout=subprocess.PIPE)
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE)
 
-out, _ = p.communicate()
+out, err = p.communicate()
+
+# Note that Clang can generate an AST even if it errors.  Most of the time
+# these errors are not too important, so we report errors only if SHOW_ERROR
+# is set to a nonempty value.
+if os.environ.get("SHOW_ERROR", ""):
+    sys.stderr.write(err.decode("utf-8"))
+    sys.stderr.flush()
 
 identifiers = set()
 for line in out.decode("utf-8").split("\n"):

@@ -32,6 +32,8 @@ def get_dependencies(fn):
                                          m.group(1)))
 
 def make_copy_header_rules(fns, extensions, prefix=""):
+    ppfiles = []
+    rules = []
     for fn in fns:
         name, ext = os.path.splitext(os.path.basename(fn))
         if ext not in extensions:
@@ -42,20 +44,17 @@ def make_copy_header_rules(fns, extensions, prefix=""):
             continue
         relpath, = re.match("src/(.*)$", fn).groups()
         out_fn = "include/" + prefix + fn
-        yield simple_command(
+        rules.append(simple_command(
             "cp {fn} $@".format(**locals()),
             out_fn,
             [fn],
-        )
-        if "_g." not in fn:
-            deps = tuple(get_dependencies(fn))
-            yield Ruleset(
-                default_target=fn,
-                rules={fn: (frozenset(deps), ())},
-            )
+        ))
+        for dep_fn in get_dependencies(fn):
+            ppfiles.append(plain_file(dep_fn))
+    return rules, ppfiles
 
 def make_run_test_rule(program_ruleset):
-    return simple_command("valgrind $(VALGRINDFLAGS) {0}",
+    return simple_command("$(VALGRIND) $(VALGRINDFLAGS) {0}",
         "run-" + os.path.basename(program_ruleset.default_target),
         [program_ruleset], phony=True)
 
@@ -79,7 +78,7 @@ def make_test_rules(fns, extensions, root):
         )).replace("/", "-")
         if ext == ".cpp":
             test_name += "++"
-        check_rule = make_run_test_rule(build_program("tmp/test-" + test_name, [
+        build_check_rule = build_program("tmp/test-" + test_name, [
             compile_source(
                 src_fn,
                 extra_flags=("$(TESTCPPFLAGS) " +
@@ -89,7 +88,8 @@ def make_test_rules(fns, extensions, root):
                 suffix="",
                 extension_suffix=True,
             ) for src_fn in src_fns
-        ]))
+        ], libraries="$(LIBS)")
+        check_rule = make_run_test_rule(build_check_rule)
         bench_rule = None
         if pp.attributes.get("bench", False):
             bench_rule = build_program("tmp/bench-" + test_name, [
@@ -102,8 +102,8 @@ def make_test_rules(fns, extensions, root):
                     suffix="_bench",
                     extension_suffix=True,
                 ) for src_fn in src_fns
-            ])
-        yield check_rule, bench_rule
+            ], libraries="$(LIBS)")
+        yield build_check_rule, check_rule, bench_rule
 
 def make_deploy_doc_rule(doc_dir, doc_rule, branch="origin"):
     return simple_command(
@@ -134,15 +134,19 @@ srcs = list(utils.get_all_files(root))
 
 pp_rules = list(make_preprocess_rules(srcs))
 
+rules, ppfiles = make_copy_header_rules(srcs, [".h", ".hpp"], prefix="calico/")
+prepare_rule = alias("prepare", ppfiles)
+
 test_rules = list(make_test_rules(srcs, [".c", ".cpp"], root))
 
-build_rule = alias("build", list(
-    make_copy_header_rules(srcs, [".h", ".hpp"], prefix="calico/")))
+build_rule = alias("build", rules + [prepare_rule])
 
-build_bench_rule = alias("build-bench", [x[1] for x in test_rules
-                                         if x[1] is not None])
+build_bench_rule = alias("build-bench", [x[2] for x in test_rules
+                                         if x[2] is not None])
 
-check_rule = alias("check", [x[0] for x in test_rules])
+build_check_rule = alias("build-check", [x[0] for x in test_rules])
+
+check_rule = alias("check", [x[1] for x in test_rules])
 
 doc_rule = simple_command([
     "rm -fr tmp/doc-src",
@@ -156,6 +160,7 @@ doc_rule = simple_command([
 alias("all", [
     build_rule,
     build_bench_rule,
+    build_check_rule,
 ]).merge(
     check_rule,
     doc_rule,
@@ -166,6 +171,7 @@ alias("all", [
                          "-D_POSIX_C_SOURCE=199309L"),
         "TESTCFLAGS": "-std=c99",
         "TESTCXXFLAGS": "-std=c++11",
+        "VALGRIND": "valgrind",
     }),
     *pp_rules
 ).save()
