@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-import os, runpy, sys
+import os, sys
+import utils
 os.environ["PATH"] = (os.path.dirname(os.path.abspath(__file__)) +
                       ":" + os.environ["PATH"])
 fn = os.path.abspath(sys.argv[1])
 os.chdir(os.path.dirname(fn))
-runpy.run_path(fn)["main"]()
+utils.FileGenerator(fn).main()

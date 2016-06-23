@@ -66,6 +66,16 @@ def get_all_files(dir):
         for bn in bns:
             yield os.path.join(dn, bn)
 
+class FileGenerator(object):
+
+    def __init__(self, filename):
+        self.filename = filename
+        self.module = {}
+        with open(filename) as f:
+            exec(compile(f.read(), filename, "exec"), self.module)
+        self.deps = self.module["__deps__"]
+        self.main = self.module["main"]
+
 class Preprocessor(object):
 
     def __init__(self, filename, stream=None):
