@@ -1,13 +1,13 @@
 #ifndef G_5FP4P4EX8CFF5QNJGX7WJ5L9QH6QS
 #define G_5FP4P4EX8CFF5QNJGX7WJ5L9QH6QS
+#if _POSIX_C_SOURCE < 199309L
+# error Define _POSIX_C_SOURCE to at least 199309L before including this header
+#endif
 #if defined _WIN32
 union _LARGE_INTEGER;
 #elif defined __MACH__
 # include <mach/mach_time.h>
 #else
-# ifndef _POSIX_C_SOURCE
-#  define _POSIX_C_SOURCE 199309L
-# endif
 # include <time.h>
 # include <sys/resource.h>
 #endif
