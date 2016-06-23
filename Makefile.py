@@ -43,7 +43,7 @@ def make_copy_header_rules(fns, extensions, prefix=""):
         if not pp.attributes.get("public", False):
             continue
         relpath, = re.match("src/(.*)$", fn).groups()
-        out_fn = "include/" + prefix + fn
+        out_fn = "include/" + prefix + relpath
         rules.append(simple_command(
             "cp {fn} $@".format(**locals()),
             out_fn,
@@ -152,7 +152,7 @@ doc_rule = simple_command([
     "rm -fr tmp/doc-src",
     "mkdir -p tmp",
     "cp -r include tmp/doc-src/",
-    "mv tmp/doc-src/btree_impl.h tmp/doc-src/btree_template.h",
+    "mv tmp/doc-src/calico/btree_impl.h tmp/doc-src/calico/btree_template.h",
     "tools/generate-doxygen-mainpage <README.md >tmp/doc-src/README.md",
     "doxygen",
 ], "doc", [build_rule], phony=True)
