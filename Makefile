@@ -1,6 +1,7 @@
 BENCHCPPFLAGS=-g -Wall -O3 -DBENCH -DNDEBUG
+GLOBALCPPFLAGS=-D_POSIX_C_SOURCE=199309L
 TESTCFLAGS=-std=c99
-TESTCPPFLAGS=-g -Wall -Wextra -Wconversion -pedantic -D_POSIX_C_SOURCE=199309L
+TESTCPPFLAGS=-g -Wall -Wextra -Wconversion -pedantic
 TESTCXXFLAGS=-std=c++11
 VALGRIND=valgrind
 
@@ -145,13 +146,13 @@ src/arithmetic_impl_g.h: src/arithmetic_impl_g.h.gen.py
 	mv $@.tmp $@
 
 src/binary_search_test.c.o: src/binary_search.h src/binary_search_test.c src/compat/inline_begin.h src/compat/inline_end.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/binary_search_test.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(GLOBALCPPFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/binary_search_test.c
 
 src/black_box.c.o: src/black_box.c src/compat/inline_begin.h src/compat/inline_end.h src/utils.h src/wclock.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/black_box.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(GLOBALCPPFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/black_box.c
 
 src/black_box_bench.c.o: src/black_box.c src/compat/inline_begin.h src/compat/inline_end.h src/utils.h src/wclock.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(BENCHCPPFLAGS) $(BENCHCFLAGS) -c -o $@ src/black_box.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(GLOBALCPPFLAGS) $(BENCHCPPFLAGS) $(BENCHCFLAGS) -c -o $@ src/black_box.c
 
 src/btree_impl_ids.txt: src/btree_impl.h src/btree_impl_ids.txt.gen.py
 	tools/run-generator >$@.tmp src/btree_impl_ids.txt.gen.py
@@ -162,25 +163,25 @@ src/btree_template_impl_g.h: src/btree_impl_ids.txt src/btree_template_impl_g.h.
 	mv $@.tmp $@
 
 src/btree_test.c.o: src/binary_search.h src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_template_impl_g.h src/btree_test.c src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/utils.h src/wclock.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/btree_test.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(GLOBALCPPFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/btree_test.c
 
 src/btree_test.cpp.o: src/btree.hpp src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_template_impl_g.h src/btree_test.cpp src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(TESTCPPFLAGS) $(TESTCXXFLAGS) -c -o $@ src/btree_test.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(GLOBALCPPFLAGS) $(TESTCPPFLAGS) $(TESTCXXFLAGS) -c -o $@ src/btree_test.cpp
 
 src/btree_test_bench.c.o: src/binary_search.h src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_template_impl_g.h src/btree_test.c src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h src/shuffle.h src/utils.h src/wclock.h
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(BENCHCPPFLAGS) $(BENCHCFLAGS) -c -o $@ src/btree_test.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(GLOBALCPPFLAGS) $(BENCHCPPFLAGS) $(BENCHCFLAGS) -c -o $@ src/btree_test.c
 
 src/shuffle_test.c.o: src/shuffle.h src/shuffle_test.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/shuffle_test.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(GLOBALCPPFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/shuffle_test.c
 
 src/stdmap_test.cpp.o: src/compat/inline_begin.h src/compat/inline_end.h src/stdmap_test.cpp src/utils.h src/wclock.h
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(TESTCPPFLAGS) $(TESTCXXFLAGS) -c -o $@ src/stdmap_test.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(GLOBALCPPFLAGS) $(TESTCPPFLAGS) $(TESTCXXFLAGS) -c -o $@ src/stdmap_test.cpp
 
 src/stdmap_test_bench.cpp.o: src/compat/inline_begin.h src/compat/inline_end.h src/stdmap_test.cpp src/utils.h src/wclock.h
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(BENCHCPPFLAGS) $(BENCHCXXFLAGS) -c -o $@ src/stdmap_test.cpp
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(GLOBALCPPFLAGS) $(BENCHCPPFLAGS) $(BENCHCXXFLAGS) -c -o $@ src/stdmap_test.cpp
 
 src/wclock_test.c.o: src/compat/inline_begin.h src/compat/inline_end.h src/wclock.h src/wclock_test.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/wclock_test.c
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(GLOBALCPPFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/wclock_test.c
 
 tmp/bench-btree: src/black_box_bench.c.o src/btree_test_bench.c.o
 	@mkdir -p tmp

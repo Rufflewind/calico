@@ -18,17 +18,11 @@
 typedef size_t key_type;
 typedef double value_type;
 
-#if 0
-#include "btree.h"
-cal_def_btree(zd, MinArity, key_type, value_type, 1, cal_pcmp,
-              SearchFunction, unsigned short, unsigned char, inline)
-#else
 #include "btree_head.h"
 #define Prefix zd
 #define KeyType key_type
 #define ValueType value_type
 #include "btree_template.h"
-#endif
 
 #include "btree_head.h"
 #define Prefix zz

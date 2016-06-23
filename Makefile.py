@@ -81,7 +81,7 @@ def make_test_rules(fns, extensions, root):
         build_check_rule = build_program("tmp/test-" + test_name, [
             compile_source(
                 src_fn,
-                extra_flags=("$(TESTCPPFLAGS) " +
+                extra_flags=("$(GLOBALCPPFLAGS) $(TESTCPPFLAGS) " +
                              ("$(TESTCXXFLAGS)"
                               if src_fn.endswith(".cpp")
                               else "$(TESTCFLAGS)")),
@@ -95,7 +95,7 @@ def make_test_rules(fns, extensions, root):
             bench_rule = build_program("tmp/bench-" + test_name, [
                 compile_source(
                     src_fn,
-                    extra_flags=("$(BENCHCPPFLAGS) " +
+                    extra_flags=("$(GLOBALCPPFLAGS) $(BENCHCPPFLAGS) " +
                                  ("$(BENCHCXXFLAGS)"
                                   if src_fn.endswith(".cpp")
                                   else "$(BENCHCFLAGS)")),
@@ -166,9 +166,9 @@ alias("all", [
     doc_rule,
     make_deploy_doc_rule("doc/html", doc_rule),
     Ruleset(macros={
+        "GLOBALCPPFLAGS": "-D_POSIX_C_SOURCE=199309L",
         "BENCHCPPFLAGS": "-g -Wall -O3 -DBENCH -DNDEBUG",
-        "TESTCPPFLAGS": ("-g -Wall -Wextra -Wconversion -pedantic "
-                         "-D_POSIX_C_SOURCE=199309L"),
+        "TESTCPPFLAGS": "-g -Wall -Wextra -Wconversion -pedantic",
         "TESTCFLAGS": "-std=c99",
         "TESTCXXFLAGS": "-std=c++11",
         "VALGRIND": "valgrind",
