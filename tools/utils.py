@@ -64,7 +64,9 @@ def prepend_prefix(s,
 def get_all_files(dir):
     for dn, _, bns in os.walk(dir):
         for bn in bns:
-            yield os.path.join(dn, bn)
+            fn = os.path.join(dn, bn)
+            if os.path.exists(fn):
+                yield fn
 
 class FileGenerator(object):
 

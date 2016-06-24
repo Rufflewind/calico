@@ -1,4 +1,4 @@
-import os, re, subprocess, sys
+import logging, os, re, subprocess, sys
 from makegen import *
 sys.path.insert(0, "tools")
 import utils
@@ -9,6 +9,7 @@ def make_preprocess_rules(fns):
         if not m:
             continue
         out_fn, = m.groups()
+        logging.warning
         deps = [snormpath(os.path.join(os.path.dirname(fn), x))
                 for x in utils.FileGenerator(fn).deps]
         deps.insert(0, fn)
