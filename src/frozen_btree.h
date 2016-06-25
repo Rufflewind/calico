@@ -1,5 +1,6 @@
 #ifndef G_YN2V4ZB84SBE8WCYQNYU9Q9A3WVA3
 #define G_YN2V4ZB84SBE8WCYQNYU9Q9A3WVA3
+/*@self.public()*/
 /** @file
     Frozen B-tree.
 */

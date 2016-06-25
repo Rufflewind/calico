@@ -102,7 +102,7 @@ class DepParser(object):
                     deps.add(new_fn)
                     seen.add(new_fn)
                     queue.append(new_fn)
-        return deps
+        return sorted(deps)
 
 def make_test_rules(fns, extensions, root):
     dp = DepParser()
