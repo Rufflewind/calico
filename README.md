@@ -18,6 +18,7 @@
 
   - `arithmetic.h`: checked arithmetic.
   - `binary_search.h`: binary search algorithm.
+  - `frozen_btree.h`: immutable associative array using a frozen B-tree.
   - `linear_ordered_search.h`: linear search through an ordered array.
   - `macros.h`: utility macros.
   - `shuffle.h`: random shuffle algorithm.
