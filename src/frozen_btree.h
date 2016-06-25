@@ -9,6 +9,7 @@
 #include <assert.h>
 #include <string.h>
 #include "binary_search.h"
+#include "linear_ordered_search.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -250,7 +251,8 @@ int calpriv_fbt_search_l_search(void *ctx,
                                 size_t *pos_out)
 {
     (void)ctx;
-    return cal_binary_search(key, ptr, count, size, cmp, cmp_ctx, pos_out);
+    return cal_linear_ordered_search(
+        key, ptr, count, size, cmp, cmp_ctx, pos_out);
 }
 
 /** Search a frozen B-tree, with the inner search performed using linear

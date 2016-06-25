@@ -21,15 +21,14 @@ int cal_binary_search(const void *key,
                       size_t *pos_out)
 {
     size_t i = 0;
+    int r = 1;
     while (count) {
         size_t m = count / 2;
         size_t j = i + m;
-        int r = (*cmp)(cmp_ctx, key, (const char *)ptr + j * size);
+        r = (*cmp)(cmp_ctx, key, (const char *)ptr + j * size);
         if (!r) {
-            if (pos_out) {
-                *pos_out = j;
-            }
-            return 1;
+            i = j;
+            break;
         }
         if (r > 0) {
             m -= 1 - count % 2;
@@ -40,7 +39,7 @@ int cal_binary_search(const void *key,
     if (pos_out) {
         *pos_out = i;
     }
-    return 0;
+    return !r;
 }
 
 #include "compat/inline_end.h"
