@@ -2,7 +2,9 @@
 #define G_YN2V4ZB84SBE8WCYQNYU9Q9A3WVA3
 /*@self.public()*/
 /** @file
-    Frozen B-tree.
+    Immutable associative arrays implemented via frozen B-trees.  This is a
+    compact data structure that allows efficient searching, but cannot be
+    modified in any way.  The tree is stored in a single contiguous array.
 */
 #include <assert.h>
 #include <string.h>
@@ -58,7 +60,26 @@ void calpriv_fbt_build_subtree(void *dest,
     }
 }
 
-/** Create a frozen B-tree from a sorted array. */
+/** Create a frozen B-tree from a sorted array.
+
+    @param[out] dest
+    The destination array where the frozen B-tree is stored.  It must be able
+    to store at least `count` elements.
+
+    @param src
+    The source array where containing the original elements sorted in
+    ascending order, containing `count` elements.
+
+    @param count
+    The number of elements.
+
+    @param size
+    The size of each element in bytes.
+
+    @param children_per_node
+    The number of children per B-tree node.  Must be greater than 1.
+
+*/
 static inline
 void cal_fbt_build(void *dest,
                    const void *src,
@@ -71,6 +92,7 @@ void cal_fbt_build(void *dest,
        (pow(B, H) - 1) total elements, and
        ((B - 1) * pow(B, H - 1)) elements in the base level. */
     size_t dim = 1;
+    assert(children_per_node > 1);
     while (dim <= count) {
         dim *= children_per_node;
     }
@@ -84,8 +106,46 @@ void cal_fbt_build(void *dest,
                               dim);
 }
 
-/** Search a frozen B-tree, with the inner search performed using the given
-    function. */
+/** Search a frozen B-tree, with the inner search performed using the an
+    arbitrary `search` function.
+
+    @param key
+    Pointer to a key to search for.
+
+    @param ptr
+    An array of keys constructed using `cal_fbt_build`.
+
+    @param count
+    The total number of keys in `ptr`.
+
+    @param size
+    The size of each key in bytes.
+
+    @param cmp
+    A key comparison function.
+
+    @param cmp_ctx
+    An arbitrary pointer passed to `cmp` as the first argument.
+
+    @param search
+    A search function that is API-compatible with `binary_search` and
+    linear_ordered_search`.
+
+    @param search_ctx
+    An arbitrary pointer passed to `search` as the first argument.
+
+    @param children_per_node
+    The number of children per B-tree node.
+
+    @param[out] pos_out
+    Yields the offset where the key was found.  This parameter can be `NULL`.
+    The pointee is not set if the key was not found.  The value is always
+    strictly less than `count`.
+
+    @return
+    Whether the element was found.
+
+*/
 static inline
 int cal_fbt_search_generic(const void *key,
                            const void *ptr,
@@ -117,7 +177,9 @@ int cal_fbt_search_generic(const void *key,
         found = (*search)(search_ctx, key, (const char *)ptr + pos * size,
                           span, size, cmp, cmp_ctx, &i);
         if (found) {
-            *pos_out = pos + i;
+            if (pos_out) {
+                *pos_out = pos + i;
+            }
             break;
         }
         ancestry = ancestry * children_per_node + i;
@@ -148,7 +210,11 @@ int calpriv_fbt_search_b_search(void *ctx,
 }
 
 /** Search a frozen B-tree, with the inner search performed using binary
-    search. */
+    search.
+
+    @see cal_fbt_search_generic
+
+*/
 static inline
 int cal_fbt_search_b(const void *key,
                      const void *ptr,
@@ -188,7 +254,11 @@ int calpriv_fbt_search_l_search(void *ctx,
 }
 
 /** Search a frozen B-tree, with the inner search performed using linear
-    search. */
+    search.
+
+    @see cal_fbt_search_generic
+
+*/
 static inline
 int cal_fbt_search_l(const void *key,
                      const void *ptr,
