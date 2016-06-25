@@ -59,40 +59,86 @@ def make_run_test_rule(program_ruleset):
         "run-" + os.path.basename(program_ruleset.default_target),
         [program_ruleset], phony=True)
 
+def parse_dependencies(filename):
+    dn = os.path.dirname(filename)
+    pp = utils.Preprocessor(filename)
+    pp.preprocess()
+    return [snormpath(os.path.join(dn, bn))
+            for bn in pp.attributes["deps"]]
+
+class DepParser(object):
+
+    def __init__(self):
+        self._cache = {} # filename -> deps
+
+    def __getitem__(self, filename):
+        try:
+            return self._cache[filename]
+        except KeyError:
+            pass
+        try:
+            value = (tuple(get_cpp_includes(filename)),
+                     parse_dependencies(filename))
+        except OSError:
+            logging.warn("cannot detect dependencies of {0} ({1})"
+                         .format(path, e))
+            value = ((), ())
+        self._cache[filename] = value
+        return value
+
+    def get_obj_deps(self, filename):
+        queue = [filename]
+        seen = set(queue)
+        deps = set(queue)
+        while queue:
+            fn = queue.pop()
+            incls, objs = self[fn]
+            for new_fn in incls:
+                if not new_fn in seen:
+                    seen.add(new_fn)
+                    queue.append(new_fn)
+            for new_fn in objs:
+                if not new_fn in seen:
+                    deps.add(new_fn)
+                    seen.add(new_fn)
+                    queue.append(new_fn)
+        return deps
+
 def make_test_rules(fns, extensions, root):
+    dp = DepParser()
     for fn in fns:
         name, ext = os.path.splitext(os.path.basename(fn))
         if ext not in extensions:
             continue
-        m = re.match("(.*?)_test$", name)
+        m = re.match("(.*?)_(test|bench)$", name)
         if not m:
             continue
-        out_name, = m.groups()
+        out_name, type = m.groups()
         dn = os.path.dirname(fn)
-        pp = utils.Preprocessor(fn)
-        pp.preprocess()
-        src_fns = [fn] + [snormpath(os.path.join(dn, bn))
-                          for bn in pp.attributes["deps"]]
+        src_fns = dp.get_obj_deps(fn)
         test_name = snormpath(os.path.join(
             os.path.relpath(dn, root),
             out_name
         )).replace("/", "-")
         if ext == ".cpp":
             test_name += "++"
-        build_check_rule = build_program("tmp/test-" + test_name, [
-            compile_source(
-                src_fn,
-                extra_flags=("$(GLOBALCPPFLAGS) $(TESTCPPFLAGS) " +
-                             ("$(TESTCXXFLAGS)"
-                              if src_fn.endswith(".cpp")
-                              else "$(TESTCFLAGS)")),
-                suffix="",
-                extension_suffix=True,
-            ) for src_fn in src_fns
-        ], libraries="$(LIBS)")
-        check_rule = make_run_test_rule(build_check_rule)
-        bench_rule = None
-        if pp.attributes.get("bench", False):
+        if type == "test":
+            build_check_rule = build_program("tmp/test-" + test_name, [
+                compile_source(
+                    src_fn,
+                    extra_flags=("$(GLOBALCPPFLAGS) $(TESTCPPFLAGS) " +
+                                 ("$(TESTCXXFLAGS)"
+                                  if src_fn.endswith(".cpp")
+                                  else "$(TESTCFLAGS)")),
+                    suffix="",
+                    extension_suffix=True,
+                ) for src_fn in src_fns
+            ], libraries="$(LIBS)")
+            check_rule = make_run_test_rule(build_check_rule)
+            bench_rule = None
+        else:
+            build_check_rule = None
+            check_rule = None
             bench_rule = build_program("tmp/bench-" + test_name, [
                 compile_source(
                     src_fn,
@@ -145,9 +191,11 @@ build_rule = alias("build", rules + [prepare_rule])
 build_bench_rule = alias("build-bench", [x[2] for x in test_rules
                                          if x[2] is not None])
 
-build_check_rule = alias("build-check", [x[0] for x in test_rules])
+build_check_rule = alias("build-check", [x[0] for x in test_rules
+                                         if x[0] is not None])
 
-check_rule = alias("check", [x[1] for x in test_rules])
+check_rule = alias("check", [x[1] for x in test_rules
+                             if x[1] is not None])
 
 doc_rule = simple_command([
     "rm -fr tmp/doc-src",
@@ -168,7 +216,7 @@ alias("all", [
     make_deploy_doc_rule("doc/html", doc_rule),
     Ruleset(macros={
         "GLOBALCPPFLAGS": "-D_POSIX_C_SOURCE=199309L",
-        "BENCHCPPFLAGS": "-g -Wall -O3 -DBENCH -DNDEBUG",
+        "BENCHCPPFLAGS": "-g -Wall -O3 -DNDEBUG",
         "TESTCPPFLAGS": "-g -Wall -Wextra -Wconversion -pedantic",
         "TESTCFLAGS": "-std=c99",
         "TESTCXXFLAGS": "-std=c++11",

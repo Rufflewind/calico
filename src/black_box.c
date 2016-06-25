@@ -1,6 +1,4 @@
-#ifndef BENCH
 #define BENCH
-#endif
 #include "utils.h"
 
 void black_box(void *x)
