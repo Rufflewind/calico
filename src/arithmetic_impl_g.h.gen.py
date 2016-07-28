@@ -70,7 +70,7 @@ docs = lambda operation, type: {
 
 }.get(operation, "")
 
-convdoc = "/** Convert from `{srctype}` to `{dsttype}`. */"
+convdoc = "/** Convert from `{srctype}` to `{dsttype}`. */\n"
 
 operation_body = lambda operation, type: {
 
@@ -344,12 +344,12 @@ def main():
               .format(name=name, srctype=srctype, dsttype=dsttype))
         write("\n{\n")
         write("""
-        if (x < {const}_MIN || x > {const}_MAX) {{
-            return 1;
-        }}
-        *z = ({dsttype})x;
-        return 0;
-    """[1:].format(dsttype=dsttype, const=const_prefix(dsttype)))
+    if (x < {const}_MIN || x > {const}_MAX) {{
+        return 1;
+    }}
+    *z = ({dsttype})x;
+    return 0;
+"""[1:].format(dsttype=dsttype, const=const_prefix(dsttype)))
         write("}\n")
         if cur_guard:
             write("#endif\n")
