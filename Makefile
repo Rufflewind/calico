@@ -175,10 +175,10 @@ src/btree_test.c.o: src/binary_search.h src/btree_head.h src/btree_impl.h src/bt
 src/btree_test.cpp.o: src/btree.hpp src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_template_impl_g.h src/btree_test.cpp src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/linear_ordered_search.h src/macros.h
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(GLOBALCPPFLAGS) $(TESTCPPFLAGS) $(TESTCXXFLAGS) -c -o $@ src/btree_test.cpp
 
-src/frozen_btree_bench_bench.c.o: src/compat/inline_begin.h src/compat/inline_end.h src/frozen_btree_bench.c src/utils.h src/wclock.h
+src/frozen_btree_bench_bench.c.o: src/binary_search.h src/compat/inline_begin.h src/compat/inline_end.h src/frozen_btree.h src/frozen_btree_bench.c src/linear_ordered_search.h src/macros.h src/utils.h src/wclock.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(GLOBALCPPFLAGS) $(BENCHCPPFLAGS) $(BENCHCFLAGS) -c -o $@ src/frozen_btree_bench.c
 
-src/frozen_btree_test.c.o: src/binary_search.h src/compat/inline_begin.h src/compat/inline_end.h src/frozen_btree.h src/frozen_btree_test.c src/macros.h
+src/frozen_btree_test.c.o: src/binary_search.h src/compat/inline_begin.h src/compat/inline_end.h src/frozen_btree.h src/frozen_btree_test.c src/linear_ordered_search.h src/macros.h
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(GLOBALCPPFLAGS) $(TESTCPPFLAGS) $(TESTCFLAGS) -c -o $@ src/frozen_btree_test.c
 
 src/shuffle_test.c.o: src/shuffle.h src/shuffle_test.c
