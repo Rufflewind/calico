@@ -9,6 +9,14 @@
 
 #include <string.h>                     /* for cal_pstrcmp */
 
+/* Clang feature test macros. */
+#ifndef __has_feature
+# define __has_feature(x) 0
+#endif
+#ifndef __has_builtin
+# define __has_builtin(x) 0
+#endif
+
 /** Concatenate two tokens. */
 #define cal_cat(x, y) calpriv_cat(x, y)
 #define calpriv_cat(x, y) x ## y

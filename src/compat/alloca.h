@@ -10,6 +10,8 @@
       - `cal_alloca(type, var, count)`
       - `cal_freea(var)`
 
+    If `type` is too complicated, it may be necessary to use a `typedef`.
+
     These functions should always be used like this:
 
         void my_function(size_t count)

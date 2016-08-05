@@ -16,11 +16,13 @@
 
 ### Ordinary headers
 
-  - `arithmetic.h`: checked arithmetic.
+  - `arithmetic.h`: checked arithmetic and related utilities.
   - `binary_search.h`: binary search algorithm.
   - `frozen_btree.h`: immutable associative array using a frozen B-tree.
   - `linear_ordered_search.h`: linear search through an ordered array.
   - `macros.h`: utility macros.
+  - `math.h`: mathemtical utilities.
+  - `packed_arithmetic.h`: arithmetic of packed vectors.
   - `shuffle.h`: random shuffle algorithm.
   - `wclock.h`: monotonic wall clock.
 
