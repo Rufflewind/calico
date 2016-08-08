@@ -7,6 +7,7 @@
 #include "arithmetic.h"
 #define CAL_ALIGNAS_OPTIONAL
 #include "compat/alignas_begin.h"
+#undef CAL_ALIGNAS_OPTIONAL
 #include "compat/inline_begin.h"
 #ifdef __cplusplus
 extern "C" {
@@ -268,5 +269,4 @@ struct cal_i8x4 cal_sub_i8x4(struct cal_i8x4 x, struct cal_i8x4 y)
 #endif
 #include "compat/inline_end.h"
 #include "compat/alignas_end.h"
-#undef CAL_ALIGNAS_OPTIONAL
 #endif
