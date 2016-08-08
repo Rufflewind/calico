@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include "compat/stdint.h"
 #include "macros.h"
+#include "compat/inline_begin.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -43,8 +44,6 @@ int64_t cal_u64_to_i64(uint64_t x);
 static
 int cal_i_to_z(size_t *y, int x);
 
-#include "compat/inline_begin.h"
-
 #define defun(Bits)                                             \
 inline                                                          \
 int##Bits##_t cal_u##Bits##_to_i##Bits(uint##Bits##_t x)        \
@@ -78,8 +77,8 @@ int cal_i_to_z(size_t *y, int x)
     return 0;
 }
 
-#include "compat/inline_end.h"
 #ifdef __cplusplus
 }
 #endif
+#include "compat/inline_end.h"
 #endif
