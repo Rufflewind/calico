@@ -11,11 +11,11 @@ static wclock clk;
 static int timing_counter;
 static double clk_time;
 #define TIME(name, repeats)                                             \
-    for (clk_time = get_wclock(&clk), timing_counter = 0;               \
+    for (clk_time = wclock_get(&clk), timing_counter = 0;               \
          !timing_counter;                                               \
          ++timing_counter,                                              \
          printf("time_%s=%.6g\n", name,                                 \
-                (get_wclock(&clk) - clk_time) / repeats))
+                (wclock_get(&clk) - clk_time) / repeats))
 
 /* black boxes to prevent optimizations */
 void black_box(void *);

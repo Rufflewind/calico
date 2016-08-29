@@ -41,6 +41,6 @@ void test_random_inserts(unsigned seed,
 
 int main(void)
 {
-    init_wclock(&clk);
+    wclock_init(&clk);
     test_random_inserts(80, 10000, 10000);
 }

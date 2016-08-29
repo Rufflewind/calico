@@ -373,7 +373,7 @@ void bench_iteration(size_t count)
 int main(void)
 {
     zd_btree bt, *t = &bt;
-    init_wclock(&clk);
+    wclock_init(&clk);
 
     zd_btree_init(t);
     zd_btree_reset(t);

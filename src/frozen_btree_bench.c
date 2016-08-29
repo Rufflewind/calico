@@ -94,7 +94,7 @@ void bench_lookup(unsigned seed, unsigned count)
 
 int main(void)
 {
-    init_wclock(&clk);
+    wclock_init(&clk);
     bench_lookup(1, 100);
     bench_lookup(1, 1000);
     bench_lookup(1, 10000);

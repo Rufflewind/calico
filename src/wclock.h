@@ -41,7 +41,7 @@ typedef struct { double _data; } wclock;
     Zero on success, nonzero on failure.
 */
 static
-int init_wclock(wclock *clock);
+int wclock_init(wclock *clock);
 
 /** Retrieve the time from a monotonic wall clock in seconds.
 
@@ -57,7 +57,7 @@ int init_wclock(wclock *clock);
     to about a few microseconds.  In practice, it is usually much less.
 */
 static
-double get_wclock(const wclock *clock);
+double wclock_get(const wclock *clock);
 
 /** Obtain the resolution of the monotonic wall clock in seconds.
 
@@ -69,12 +69,12 @@ double get_wclock(const wclock *clock);
     If an error occurs, `NAN` is returned.
 */
 static
-double get_wclock_res(const wclock *clock);
+double wclock_get_res(const wclock *clock);
 
 #include "compat/inline_begin.h"
 
 inline
-int init_wclock(wclock *self)
+int wclock_init(wclock *self)
 {
 #if defined _WIN32
     int __stdcall QueryPerformanceFrequency(union _LARGE_INTEGER *);
@@ -96,7 +96,7 @@ int init_wclock(wclock *self)
 }
 
 inline
-double get_wclock(const wclock *self)
+double wclock_get(const wclock *self)
 {
 #if defined _WIN32
     int __stdcall QueryPerformanceCounter(union _LARGE_INTEGER *);
@@ -118,7 +118,7 @@ double get_wclock(const wclock *self)
 }
 
 inline
-double get_wclock_res(const wclock *self)
+double wclock_get_res(const wclock *self)
 {
 #if defined _WIN32 || defined __MACH__
     return self->_data;
