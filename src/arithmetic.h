@@ -17,25 +17,29 @@ extern "C" {
 
 /** Convert an 8-bit unsigned integer to an 8-bit integer, preserving the
     two's complement representation.  On most platforms this optimizes to a
-    no-op. */
+    no-op.  There is no inverse function for this because casting is safe in
+    the other direction. */
 static
 int8_t cal_u8_to_i8(uint8_t x);
 
 /** Convert a 16-bit unsigned integer to a 16-bit integer, preserving the
     two's complement representation.  On most platforms this optimizes to a
-    no-op. */
+    no-op.  There is no inverse function for this because casting is safe in
+    the other direction. */
 static
 int16_t cal_u16_to_i16(uint16_t x);
 
 /** Convert a 32-bit unsigned integer to a 32-bit integer, preserving the
     two's complement representation.  On most platforms this optimizes to a
-    no-op. */
+    no-op.  There is no inverse function for this because casting is safe in
+    the other direction. */
 static
 int32_t cal_u32_to_i32(uint32_t x);
 
 /** Convert a 64-bit unsigned integer to a 64-bit integer, preserving the
     two's complement representation.  On most platforms this optimizes to a
-    no-op. */
+    no-op.  There is no inverse function for this because casting is safe in
+    the other direction. */
 static
 int64_t cal_u64_to_i64(uint64_t x);
 
