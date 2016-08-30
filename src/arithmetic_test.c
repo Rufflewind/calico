@@ -20,9 +20,12 @@ void test_conversions(void)
 #undef test
 
     size_t n;
+    int i;
     assert(!cal_i_to_z(&n, 12));
     assert(n == (size_t)12);
     assert(cal_i_to_z(&n, -1));
+    assert(!cal_add_i(&i, 1, 2));
+    assert(cal_add_i(&i, 1, INT_MAX));
 }
 
 int main(void)

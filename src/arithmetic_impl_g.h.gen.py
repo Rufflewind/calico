@@ -321,10 +321,10 @@ convtypes = [
 ]
 
 def construct_name(operation, type):
-    return operation + "_" + suffix[type]
+    return "cal_" + operation + "_" + suffix[type]
 
 def construct_conv_name(srctype, dsttype):
-    return suffix[srctype] + "_to_" + suffix[dsttype]
+    return "cal_" + suffix[srctype] + "_to_" + suffix[dsttype]
 
 def main():
     write = sys.stdout.write
