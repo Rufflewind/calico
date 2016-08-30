@@ -71,7 +71,7 @@
 #define cal_cond_ndebug(x, y) y
 #endif
 
-/** Obtain a lower bound on the logarithm of a number */
+/** Obtain a lower bound on the logarithm of a number. */
 #define cal_minlog2(x)                          \
     ((x) >= 256 ? 8 :                           \
      (x) >= 128 ? 7 :                           \
