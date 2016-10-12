@@ -168,30 +168,24 @@ int cal_fbt_search_generic(const void *key,
                            size_t children_per_node,
                            size_t *pos_out)
 {
-    int found;
     size_t keys_per_node = children_per_node - 1;
-    size_t level_count = keys_per_node, ancestry = 0, level_pos = 0, pos = 0;
+    size_t pos = 0;
     assert(children_per_node > 1);
-    while (1) {
-        size_t i, remaining = count - pos;
+    while (pos < count) {
+        size_t remaining = count - pos;
         size_t span = keys_per_node < remaining ? keys_per_node : remaining;
-        found = (*search)(search_ctx, key, (const char *)ptr + pos * size,
-                          span, size, cmp, cmp_ctx, &i);
+        size_t i;
+        int found = (*search)(search_ctx, key, (const char *)ptr + pos * size,
+                              span, size, cmp, cmp_ctx, &i);
         if (found) {
             if (pos_out) {
                 *pos_out = pos + i;
             }
-            break;
+            return 1;
         }
-        ancestry = ancestry * children_per_node + i;
-        pos = level_pos + level_count + ancestry * keys_per_node;
-        if (pos >= count) {
-            break;
-        }
-        level_pos += level_count;
-        level_count *= children_per_node;
+        pos = pos * children_per_node + (i + 1) * keys_per_node;
     }
-    return found;
+    return 0;
 }
 
 static inline
