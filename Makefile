@@ -7,7 +7,7 @@ VALGRIND=valgrind
 
 all: build build-bench build-check
 
-build: include/calico/arithmetic.h include/calico/arithmetic_impl_g.h include/calico/binary_search.h include/calico/btree.hpp include/calico/btree_head.h include/calico/btree_impl.h include/calico/btree_template.h include/calico/btree_template_impl_g.h include/calico/compat/alignas_begin.h include/calico/compat/alignas_end.h include/calico/compat/alloca.h include/calico/compat/inline_begin.h include/calico/compat/inline_end.h include/calico/compat/noreturn_begin.h include/calico/compat/noreturn_end.h include/calico/compat/restrict_begin.h include/calico/compat/restrict_end.h include/calico/compat/static_assert_begin.h include/calico/compat/static_assert_end.h include/calico/compat/stdint.h include/calico/frozen_btree.h include/calico/linear_ordered_search.h include/calico/macros.h include/calico/math.h include/calico/packed_arithmetic.h include/calico/shuffle.h include/calico/wclock.h prepare
+build: include/calico/arithmetic.h include/calico/arithmetic_impl_g.h include/calico/binary_search.h include/calico/btree.hpp include/calico/btree_head.h include/calico/btree_impl.h include/calico/btree_template.h include/calico/btree_template_impl_g.h include/calico/compat/alignas_begin.h include/calico/compat/alignas_end.h include/calico/compat/aligned_alloc_begin.h include/calico/compat/aligned_alloc_end.h include/calico/compat/alignof_begin.h include/calico/compat/alignof_end.h include/calico/compat/alloca.h include/calico/compat/inline_begin.h include/calico/compat/inline_end.h include/calico/compat/noreturn_begin.h include/calico/compat/noreturn_end.h include/calico/compat/restrict_begin.h include/calico/compat/restrict_end.h include/calico/compat/static_assert_begin.h include/calico/compat/static_assert_end.h include/calico/compat/stdint.h include/calico/frozen_btree.h include/calico/linear_ordered_search.h include/calico/macros.h include/calico/math.h include/calico/packed_arithmetic.h include/calico/shuffle.h include/calico/wclock.h prepare
 
 build-bench: tmp/bench-btree tmp/bench-frozen_btree tmp/bench-stdmap++
 
@@ -16,7 +16,7 @@ build-check: tmp/test-arithmetic tmp/test-binary_search tmp/test-btree tmp/test-
 check: run-test-arithmetic run-test-binary_search run-test-btree run-test-btree++ run-test-frozen_btree run-test-packed_arithmetic run-test-shuffle run-test-wclock
 
 clean:
-	rm -fr -- include/calico/arithmetic.h include/calico/arithmetic_impl_g.h include/calico/binary_search.h include/calico/btree.hpp include/calico/btree_head.h include/calico/btree_impl.h include/calico/btree_template.h include/calico/btree_template_impl_g.h include/calico/compat/alignas_begin.h include/calico/compat/alignas_end.h include/calico/compat/alloca.h include/calico/compat/inline_begin.h include/calico/compat/inline_end.h include/calico/compat/noreturn_begin.h include/calico/compat/noreturn_end.h include/calico/compat/restrict_begin.h include/calico/compat/restrict_end.h include/calico/compat/static_assert_begin.h include/calico/compat/static_assert_end.h include/calico/compat/stdint.h include/calico/frozen_btree.h include/calico/linear_ordered_search.h include/calico/macros.h include/calico/math.h include/calico/packed_arithmetic.h include/calico/shuffle.h include/calico/wclock.h src/arithmetic_impl_g.h src/arithmetic_test.c.o src/binary_search_test.c.o src/black_box.c.o src/black_box_bench.c.o src/btree_bench_bench.c.o src/btree_impl_ids.txt src/btree_template_impl_g.h src/btree_test.c.o src/btree_test.cpp.o src/frozen_btree_bench_bench.c.o src/frozen_btree_test.c.o src/packed_arithmetic_test.c.o src/shuffle_test.c.o src/stdmap_bench_bench.cpp.o src/wclock_test.c.o tmp/bench-btree tmp/bench-frozen_btree tmp/bench-stdmap++ tmp/test-arithmetic tmp/test-binary_search tmp/test-btree tmp/test-btree++ tmp/test-frozen_btree tmp/test-packed_arithmetic tmp/test-shuffle tmp/test-wclock
+	rm -fr -- include/calico/arithmetic.h include/calico/arithmetic_impl_g.h include/calico/binary_search.h include/calico/btree.hpp include/calico/btree_head.h include/calico/btree_impl.h include/calico/btree_template.h include/calico/btree_template_impl_g.h include/calico/compat/alignas_begin.h include/calico/compat/alignas_end.h include/calico/compat/aligned_alloc_begin.h include/calico/compat/aligned_alloc_end.h include/calico/compat/alignof_begin.h include/calico/compat/alignof_end.h include/calico/compat/alloca.h include/calico/compat/inline_begin.h include/calico/compat/inline_end.h include/calico/compat/noreturn_begin.h include/calico/compat/noreturn_end.h include/calico/compat/restrict_begin.h include/calico/compat/restrict_end.h include/calico/compat/static_assert_begin.h include/calico/compat/static_assert_end.h include/calico/compat/stdint.h include/calico/frozen_btree.h include/calico/linear_ordered_search.h include/calico/macros.h include/calico/math.h include/calico/packed_arithmetic.h include/calico/shuffle.h include/calico/wclock.h src/arithmetic_impl_g.h src/arithmetic_test.c.o src/binary_search_test.c.o src/black_box.c.o src/black_box_bench.c.o src/btree_bench_bench.c.o src/btree_impl_ids.txt src/btree_template_impl_g.h src/btree_test.c.o src/btree_test.cpp.o src/frozen_btree_bench_bench.c.o src/frozen_btree_test.c.o src/packed_arithmetic_test.c.o src/shuffle_test.c.o src/stdmap_bench_bench.cpp.o src/wclock_test.c.o tmp/bench-btree tmp/bench-frozen_btree tmp/bench-stdmap++ tmp/test-arithmetic tmp/test-binary_search tmp/test-btree tmp/test-btree++ tmp/test-frozen_btree tmp/test-packed_arithmetic tmp/test-shuffle tmp/test-wclock
 
 deploy-doc: doc
 	[ -d doc/html/.git ] || ( url=`git remote -v | grep origin | awk '{ printf "%s", $$2; exit }'` &&mkdir -p doc/html && cd doc/html && git init && git config user.name Bot && git config user.email '<>' && git commit -m _ --allow-empty && git remote add origin "$$url" ) && cd doc/html && git add -A && git commit --amend -q -m Autogenerated && git push -f origin master:gh-pages
@@ -29,7 +29,7 @@ doc: build
 	tools/generate-doxygen-mainpage <README.md >tmp/doc-src/README.md
 	doxygen
 
-prepare: src/arithmetic.h src/arithmetic_impl_g.h src/binary_search.h src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_template_impl_g.h src/compat/alignas_begin.h src/compat/alignas_end.h src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/compat/stdint.h src/linear_ordered_search.h src/macros.h
+prepare: src/arithmetic.h src/arithmetic_impl_g.h src/binary_search.h src/btree_head.h src/btree_impl.h src/btree_template.h src/btree_template_impl_g.h src/compat/alignas_begin.h src/compat/alignas_end.h src/compat/aligned_alloc.h src/compat/inline_begin.h src/compat/inline_end.h src/compat/static_assert_begin.h src/compat/static_assert_end.h src/compat/stdint.h src/linear_ordered_search.h src/macros.h
 
 run-test-arithmetic: tmp/test-arithmetic
 	$(VALGRIND) $(VALGRINDFLAGS) tmp/test-arithmetic
@@ -94,6 +94,22 @@ include/calico/compat/alignas_begin.h: src/compat/alignas_begin.h
 include/calico/compat/alignas_end.h: src/compat/alignas_end.h
 	@mkdir -p include/calico/compat
 	cp src/compat/alignas_end.h $@
+
+include/calico/compat/aligned_alloc_begin.h: src/compat/aligned_alloc_begin.h
+	@mkdir -p include/calico/compat
+	cp src/compat/aligned_alloc_begin.h $@
+
+include/calico/compat/aligned_alloc_end.h: src/compat/aligned_alloc_end.h
+	@mkdir -p include/calico/compat
+	cp src/compat/aligned_alloc_end.h $@
+
+include/calico/compat/alignof_begin.h: src/compat/alignof_begin.h
+	@mkdir -p include/calico/compat
+	cp src/compat/alignof_begin.h $@
+
+include/calico/compat/alignof_end.h: src/compat/alignof_end.h
+	@mkdir -p include/calico/compat
+	cp src/compat/alignof_end.h $@
 
 include/calico/compat/alloca.h: src/compat/alloca.h
 	@mkdir -p include/calico/compat
