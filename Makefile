@@ -3,7 +3,7 @@ GLOBALCPPFLAGS=-D_POSIX_C_SOURCE=199309L
 TESTCFLAGS=-std=c99
 TESTCPPFLAGS=-g -Wall -Wextra -Wconversion -pedantic
 TESTCXXFLAGS=-std=c++11
-VALGRIND=valgrind
+VALGRIND=valgrind --error-exitcode=1
 
 all: build build-bench build-check
 

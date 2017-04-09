@@ -3,7 +3,7 @@ sudo: false
 matrix:
   include:
   - os: linux
-    env: HAVE_GCC5=1 LIBS=-lrt VALGRIND=valgrind
+    env: HAVE_GCC5=1 LIBS=-lrt VALGRIND="valgrind --error-exitcode=1"
     addons:
       apt:
         packages:
