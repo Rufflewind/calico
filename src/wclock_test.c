@@ -5,7 +5,7 @@
 #include "wclock.h"
 #ifdef _WIN32
 # include <windows.h>
-# define sleep Sleep
+static unsigned int sleep(unsigned int x) { Sleep(x * 1000); return 0; }
 #else
 # include <unistd.h>
 #endif

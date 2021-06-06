@@ -1,12 +1,9 @@
 # Calico
 
-[![Travis CI build status][ti]][tl]
-[![AppVeyor build status][ai]][al]
+[![Build status][bi]][bl]
 
-[ti]: https://travis-ci.org/Rufflewind/calico.svg?branch=master
-[tl]: https://travis-ci.org/Rufflewind/calico
-[ai]: https://ci.appveyor.com/api/projects/status/github/Rufflewind/calico?branch=master&svg=true
-[al]: https://ci.appveyor.com/project/Rufflewind/calico
+[bi]: https://github.com/Rufflewind/calico/actions/workflows/build.yml/badge.svg
+[bl]: https://github.com/Rufflewind/calico/actions/workflows/build.yml
 
 **Quick links**: [documentation](https://rufflewind.com/calico).
 
