@@ -32,7 +32,7 @@ int main(void)
     t2 = wclock_get(&clock);
     printf("%.17g\n", t2);
     printf("%.17g\n", t2 - t1);
-    assert(fabs(t2 - t1 - 1.) < 1e-1);
+    assert(t2 - t1 >= 0.9 && t2 - t1 < 1.4);
 
     return 0;
 }
