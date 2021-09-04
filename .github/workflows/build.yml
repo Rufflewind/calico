@@ -29,5 +29,5 @@ jobs:
           echo 'C:\msys64\usr\bin' >> $GITHUB_PATH
           echo 'C:\msys64\mingw64\bin' >> $GITHUB_PATH
       - uses: actions/checkout@v2
-      - run: make
+      - run: make -B
       - run: make VALGRIND="${VALGRIND-}" check

@@ -1,4 +1,4 @@
-import io, os, re, sys
+import io, os, re, subprocess, sys
 
 #@snip/WorkDir[
 #@requires: mod:os
@@ -34,7 +34,7 @@ def load_file(filename, binary=False, encoding=None,
 #@]
 
 def pexec(args):
-    os.execvp(args[0], args)
+    subprocess.check_call(["sh", "-c", 'exec "$@"', "-"] + list(args))
 
 def escape_newlines(s):
     return s.replace("\n", " \\\n")
